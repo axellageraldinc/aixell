@@ -4,7 +4,7 @@ import { content } from './content.js';
 import * as store from './store.js';
 
 // "For you": the timeline is ranked like a social feed. Every ready card has a score
-//     relevance (System One's taste reading + what the reader taught: topics, sources)  x  freshness (half-life per category)
+//     relevance (System One's reading of the story)  x  freshness (half-life per category)
 //     x  corroboration (outlets that ran it)  + a little for stack security and popularity,
 // then a mixer shapes the order so it does not read like a list sorted by one number: no more than two cards in a row from
 // the same category or source, no category over 5 of any 12, about one card in ten from outside the top (exploration), and
@@ -21,11 +21,8 @@ export const LANG_BOOST = 0.08; // a card from a language-restricted source that
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
-export function scoreRow(row, { feedback, weights, now = Date.now() }) {
-  const topics = row.topics ? JSON.parse(row.topics) : [];
-  let taste = 0;
-  for (const t of topics) taste += feedback.get(t) ?? 0;
-  const relevance = clamp((row.rel ?? 0.4) + clamp(taste, -3, 3) * 0.12 + (weights.get(row.source) ?? 0) * 0.2, 0, 1.6);
+export function scoreRow(row, { now = Date.now() } = {}) {
+  const relevance = clamp(row.rel ?? 0.4, 0, 1.6);
   const ageH = Math.max(0, (now - row.published) / 3_600_000);
   const fresh = 0.5 ** (ageH / (HALF_LIFE_H[row.cat] ?? 18));
   const corroboration = 1 + 0.25 * Math.min(3, (row.outlets ?? 1) - 1);
@@ -78,10 +75,8 @@ export function mix(items, { cat = '', seed = 'x' } = {}) {
 }
 
 export function rankIds({ cat = '', now = Date.now(), seed = 'x' } = {}) {
-  const feedback = store.feedbackTopics();
-  const weights = store.feedbackSources();
   const pool = store.rankPool(now - WINDOW_MS, CATEGORIES[cat] ? cat : '');
-  const scored = pool.map((row) => ({ id: row.id, cat: row.cat, source: row.source, thread: row.thread || '', rel: row.rel ?? 0.4, seen: Boolean(row.seen_at || row.read_at), score: scoreRow(row, { feedback, weights, now }) }))
+  const scored = pool.map((row) => ({ id: row.id, cat: row.cat, source: row.source, thread: row.thread || '', rel: row.rel ?? 0.4, seen: Boolean(row.seen_at || row.read_at), score: scoreRow(row, { now }) }))
     .sort((a, b) => b.score - a.score).slice(0, POOL_MAX);
   const opts = { cat: CATEGORIES[cat] ? cat : '', seed };
   return [...mix(scored.filter((s) => !s.seen), opts), ...mix(scored.filter((s) => s.seen), opts)].map((s) => s.id);

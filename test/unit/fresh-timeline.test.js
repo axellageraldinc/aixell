@@ -121,13 +121,13 @@ test('mix is deterministic for a given seed', () => {
   assert.equal(timeline.mix(items, { seed: 'one' }).map((x) => x.id).join(), a);
 });
 
-test('scoreRow: newer beats older, taste feedback and corroboration raise the score', () => {
-  const ctx = { feedback: new Map(), weights: new Map(), now: NOW };
+test('scoreRow: newer beats older, relevance and corroboration raise the score', () => {
+  const ctx = { now: NOW };
   const base = { published: NOW - 3_600_000, cat: 'ai', source: 'a', rel: 0.5, outlets: 1, topics: JSON.stringify(['llm']), meta: null };
   const fresh = timeline.scoreRow(base, ctx);
   assert.ok(fresh > timeline.scoreRow({ ...base, published: NOW - 48 * 3_600_000 }, ctx));
-  assert.ok(timeline.scoreRow(base, { ...ctx, feedback: new Map([['llm', 2]]) }) > fresh);
-  assert.ok(timeline.scoreRow(base, { ...ctx, feedback: new Map([['llm', -2]]) }) < fresh);
+  assert.ok(timeline.scoreRow({ ...base, rel: 0.9 }, ctx) > fresh);
+  assert.ok(timeline.scoreRow({ ...base, rel: 0.1 }, ctx) < fresh);
   assert.ok(timeline.scoreRow({ ...base, outlets: 3 }, ctx) > fresh);
 });
 

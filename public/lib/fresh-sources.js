@@ -1,6 +1,6 @@
-// "Sources and taste": which sites feed the timeline (grouped by category; add your own by pasting an address), Bluesky, Steam
-// and X (paid: the switch, today's calls and cost, the accounts it learned), how often it checks, what you taught it with
-// "more / less like this", and how a Hermes worker can send stories from places that need a login.
+// "Feed settings": which sites feed the timeline (grouped by category; add your own by pasting an address), Bluesky, Steam
+// and X (paid: the switch, today's calls and cost, the accounts it learned), how often it checks, and how a Hermes worker can
+// send stories from places that need a login.
 import { h } from './dom.js';
 import { icon } from './icons.js';
 import { api } from './api.js';
@@ -374,20 +374,13 @@ export async function openFreshSources({ onChange, onOrder } = {}) {
     const social = h('section', { 'data-section': 'social' }, h('h3', {}, t('feed.source.groupSocial')),
       h('div', { className: 'fr-s-list' }, data.sources.filter((s) => s.virtual && s.id !== 'x').map(sourceRow)), xBlock(data));
 
-    // -- taste
-    const topics = data.topics.length
-      ? h('div', { className: 'fr-s-topics' }, data.topics.map((topic) => h('span', { className: `fr-s-topic ${topic.weight < 0 ? 'less' : 'more'}` }, `${topic.weight < 0 ? t('feed.taste.less') : t('feed.taste.more')} · ${topic.token}`,
-        h('button', { type: 'button', 'aria-label': t('feed.taste.forget', { token: topic.token }), onClick: async () => { await api(`/api/fresh/topics/${encodeURIComponent(topic.token)}`, { method: 'DELETE' }).catch(() => {}); changed = true; paint(); } }, icon('x', 12)))))
-      : h('p', { className: 'dlg-note' }, t('feed.taste.empty'));
-    const taste = h('section', {}, h('h3', {}, t('feed.taste.title')), topics);
-
     // -- hermes worker
     const token = h('button', { type: 'button', className: 'btn btn-sm', 'data-testid': 'fresh-token' }, t('feed.ingest.copy'));
     token.addEventListener('click', async () => { try { const { token: secret } = await api('/api/fresh/ingest-token'); notify((await copyText(secret)) ? t('feed.ingest.copied') : t('common.copyFailed')); } catch (e) { notify(e.message); } });
     const worker = h('section', {}, h('h3', {}, t('feed.ingest.title')),
       h('p', { className: 'dlg-note' }, t('feed.ingest.hintBefore'), h('code', {}, `${location.origin}/api/fresh/ingest`), t('feed.ingest.hintAfter')),
       token);
-    body.replaceChildren(general, notifyBlock(data), orderBlock(data), categoriesBlock(editor), sources, social, taste, glossaryBlock(data.contentLanguage ?? ''), worker, status());
+    body.replaceChildren(general, notifyBlock(data), orderBlock(data), categoriesBlock(editor), sources, social, glossaryBlock(data.contentLanguage ?? ''), worker, status());
   }
   paint();
 }

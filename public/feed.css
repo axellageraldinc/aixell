@@ -402,7 +402,7 @@ html[data-feed-view="home"] .ptr { z-index: 8; top: 52px; box-shadow: 0 2px 10px
 .fr-r-foot { flex-wrap: wrap; }
 .fr-r-save[aria-pressed="true"] svg { fill: currentColor; }
 
-/* sources and taste dialog */
+/* feed settings dialog */
 .fr-s-order { list-style: none; margin: 8px 0 0; padding: 0; display: grid; }
 .fr-s-orow { display: flex; align-items: center; gap: 6px; padding: 4px 0; border-bottom: 1px solid var(--hairline); background: var(--bgColor-default); }
 .fr-s-orow.dragging { background: var(--bgColor-muted); box-shadow: 0 2px 10px rgb(0 0 0 / 0.18); border-radius: 8px; position: relative; z-index: 1; }
@@ -441,10 +441,6 @@ html[data-feed-view="home"] .ptr { z-index: 8; top: 52px; box-shadow: 0 2px 10px
 .fr-s-slots li[data-state="error"] em { color: var(--fgColor-danger, inherit); }
 .fr-s-handles { margin: 6px 0; font-size: 12.5px; line-height: 1.5; color: var(--fgColor-muted); overflow-wrap: anywhere; }
 .fr-s-handles b { color: var(--fgColor-default); }
-.fr-s-topics { display: flex; flex-wrap: wrap; gap: 6px; }
-.fr-s-topic { display: inline-flex; align-items: center; gap: 4px; padding: 3px 4px 3px 10px; border: 1px solid var(--hairline); border-radius: 999px; font-size: 12.5px; }
-.fr-s-topic.less { color: var(--fgColor-muted); }
-.fr-s-topic button { display: grid; place-items: center; width: 20px; height: 20px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: inherit; cursor: pointer; }
 
 @media (max-width: 899px) {
   .fr-r-body { padding: 4px 18px 22px; }

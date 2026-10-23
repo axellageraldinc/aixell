@@ -148,20 +148,18 @@ Same session cookie as everything else; writes need `X-CSRF-Token`.
 | `POST /api/fresh/refresh` | – | `200`; wakes the worker and returns at once (never waits for gathering) |
 | `GET /api/fresh/status` | – | `200` worker status |
 | `GET /api/fresh/poll` | `since` (number) | `200` what changed since that point |
-| `GET /api/fresh/settings` | – | `200` settings plus `sources`, `categories`, `topics`, `ingest`, locale info |
+| `GET /api/fresh/settings` | – | `200` settings plus `sources`, `categories`, `ingest`, locale info |
 | `GET /api/fresh/categories` | – | `200 {categories, from, editable}` |
 | `PUT /api/fresh/categories` | `{categories: [{id, label, halfLifeHours, keywords:{pos,neg}}]}` | `200` the saved list and `catOrder` · `400 bad_categories` (also when `config.json` owns the list) |
 | `PUT /api/fresh/settings` | `{enabled?, intervalMin?, x?, catOrder?, notify?, llmPerMin?}` | `200` updated settings · `400 bad_order` |
 | `POST /api/fresh/seen` | `{ids: string[]}` (body up to 8 KB) | `200` marks those stories as seen |
 | `GET /api/fresh/img/:id` | – | `200 image/jpeg`, cacheable for a week · `404 no_image` |
 | `GET /api/fresh/:id/reader` | – | `200` reader view of one story · `404 no_item` |
-| `POST /api/fresh/:id/feedback` | `{kind: "more"\|"less"}` | `200` nudges topic and source weights; `less` also hides the story · `404 no_item` |
-| `POST /api/fresh/:id/signal` | `{kind: "open"\|"read"\|"dwell"\|"skip"\|"ask"\|"save"\|"share", ms?}` | `200` implicit taste signal · `400 bad_signal` · `429 rate_limited` |
+| `POST /api/fresh/:id/signal` | `{kind: "open"\|"read"\|"dwell"\|"skip"\|"ask"\|"save"\|"share", ms?}` | `200` marks the story seen · `400 bad_signal` · `429 rate_limited` |
 | `POST /api/fresh/:id/save` `unsave` `hide` `read` | – | `200` sets the flag on the story · `404 no_item` |
 | `POST /api/fresh/sources` | `{url, cat?, name?}` | `200` finds the feed at that address and adds it · `400 bad_source` |
 | `PATCH /api/fresh/sources/:id` | `{on: boolean}` | `200 {ok:true}` switches a source on or off · `404 no_source` |
 | `DELETE /api/fresh/sources/:id` | – | `200 {ok:true}`; only sources you added yourself · `404 no_source` |
-| `DELETE /api/fresh/topics/:token` | – | `200 {ok:true}` makes the feed forget a learned topic |
 | `GET /api/fresh/glossary` | – | `200 {entries}` terms awaiting or holding a decision |
 | `PUT /api/fresh/glossary/:term` | `{decision, form?, bad?}` | `200` records the decision · `400 bad_term` |
 | `GET /api/fresh/ingest-token` | – | `200 {token}` the bearer token a worker uses below |

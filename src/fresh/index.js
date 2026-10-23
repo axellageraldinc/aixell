@@ -254,8 +254,6 @@ function joinOutlets(row, outlets, item) {
 // `stats` (a bootstrap step) is filled in as it goes: how many stories were seen, were already known, or were set aside by score.
 function addCandidates(items, { now = Date.now(), stats = null } = {}) {
   const tally = (k) => { if (stats) stats[k] += 1; };
-  const feedback = store.feedbackTopics();
-  const weights = store.feedbackSources();
   const fresh = items.filter((i) => i.url && i.title && i.ts > now - MAX_AGE_H * 3_600_000 && i.ts < now + 3_600_000);
   const known = store.recentSigs(now - 48 * 3_600_000).map((r) => ({ ...r, s: r.sig ?? sig(r.title) }));
   let added = 0;
@@ -283,7 +281,7 @@ function addCandidates(items, { now = Date.now(), stats = null } = {}) {
     if (item.meta?.release && item.meta.repo) releasesSeen.add(item.source);
     const cat = categoryOf(item);
     const flagged = stackFlag(item);
-    const score = scoreOf(item, { outlets: outlets.length, feedback, sourceWeights: weights, now, boost: steamBoostOf(`${item.title} ${item.snippet ?? ''}`) });
+    const score = scoreOf(item, { outlets: outlets.length, now, boost: steamBoostOf(`${item.title} ${item.snippet ?? ''}`) });
     const row = {
       id, url: item.url, title: item.title.slice(0, 300), source: item.source, cat, published: item.ts, first_seen: now, score, outlets: outlets.length, also: JSON.stringify(outlets),
       meta: JSON.stringify({ ...item.meta, snippet: item.snippet, image: item.image ?? null, name: item.name }), sig: s, status: score >= MIN_SCORE ? 'new' : 'skip', kind: item.kind ?? null, flag: flagged ? 'stack' : null,
@@ -298,14 +296,6 @@ function addCandidates(items, { now = Date.now(), stats = null } = {}) {
 // The Steam taste boost comes from the connector (registry.get('steam').boost) and is 0 when Steam
 // is not configured.
 const steamBoostOf = (text) => registry.get('steam')?.boost?.(text) ?? 0;
-
-// How much the reader's likes / dislikes favour a story: the weight of each of its topics (or, before it has any, the words of
-// its title). Negative means "show fewer like this".
-function tasteOf(topics, feedback = store.feedbackTopics()) {
-  let sum = 0;
-  for (const t of topics) sum += feedback.get(t) ?? 0;
-  return Math.max(-4, Math.min(4, sum));
-}
 
 // System One reads each new story: category, how well it fits the reader, and whether it is something never wanted (deals,
 // layoffs, listicles ...). Whatever fails is set aside; the rest waits for the writer, best first.
@@ -356,13 +346,6 @@ async function dedupe() {
   return merged;
 }
 
-// Stories that were passed over (too low a score) come back when what the reader asked for more of now matches them.
-function reviveLiked() {
-  const feedback = store.feedbackTopics();
-  if (![...feedback.values()].some((w) => w >= 0.8)) return;
-  for (const row of store.skippedSince(Date.now() - 36 * 3_600_000)) if (tasteOf(tokens(row.title), feedback) >= 1.5) store.revive(row.id);
-}
-
 const ready = (p, card, llm) => ({ id: p.id, title_local: card?.title_local ?? null, summary: card?.summary ?? (p.description || p.snippet || '').slice(0, 240), why: card?.why ?? '', topics: JSON.stringify(card?.topics?.length ? card.topics : tokens(p.title).slice(0, 4)), image: p.image ? 1 : 0, llm, writer: card?.path ?? 'plain' });
 
 // Posts on Reddit, Bluesky and X carry memes and reaction pictures: for those only the og:image of the article they link to may be
@@ -378,8 +361,7 @@ export function pictureFor(row, meta, info) {
 async function enrich(limit = PER_RUN) {
   const today = store.dailyCount(Date.now() - 24 * 3_600_000);
   const room = Math.max(0, Math.min(limit, DAILY_CAP - today));
-  const feedback = store.feedbackTopics();
-  const pending = store.pendingItems(PER_RUN * 6).map((row) => ({ row, rank: row.score + tasteOf(tokens(row.title), feedback) })).sort((a, b) => b.rank - a.rank).map((x) => x.row);
+  const pending = store.pendingItems(PER_RUN * 6).sort((a, b) => b.score - a.score);
   // X first (paid, freshest, no per-source cap). The rest of the round goes to the categories in turn, best of each first, the one
   // with the thinnest unread stock picking first, so a chatty category (security feeds) cannot fill the pool. No single source may
   // fill a round either (Hacker News alone would): the best few of each come first, the rest only if there is room.
@@ -436,7 +418,6 @@ async function enrich(limit = PER_RUN) {
     if (card && card.substance === false && !p.finished && !p.release) { store.markSkipped(p.id); continue; }
     store.markReady(p.finished ? { ...ready(p, null, 1), title_local: p.title, summary: p.snippet, writer: 'steam' } : ready(p, card, card ? 1 : 0));
     count += 1;
-    if (tasteOf(JSON.parse(store.getItem(p.id)?.topics ?? '[]'), feedback) <= -2) store.setFlag('hidden', p.id, true);
   }
   return count;
 }
@@ -487,7 +468,6 @@ async function gather(force = false) {
   const cycleStart = Date.now();
   const [feeds, accounts] = await Promise.all([fetchFeeds(force), fetchAccountSources(force)]);
   const added = addCandidates(await resolveItems([...feeds.items, ...accounts.items]));
-  reviveLiked();
   await drain();
   const ready = store.stats().ready ?? 0;
   const merged = added || ready ? await dedupe() : 0;
@@ -725,55 +705,27 @@ export function actOn(id, action) {
   return { ok: true };
 }
 
-const topicsOf = (row) => (row.topics ? JSON.parse(row.topics) : tokens(row.title));
-const handleOf = (row) => JSON.parse(row.meta ?? '{}').handle ?? '';
-const langOf = (row) => JSON.parse(row.meta ?? '{}').lang ?? '';
-
-export function feedbackOn(id, kind) {
-  const row = store.getItem(id);
-  if (!row || !['more', 'less'].includes(kind)) return null;
-  const topics = topicsOf(row);
-  store.nudge(topics, row.source, kind === 'more' ? 0.8 : -1);
-  if (handleOf(row)) noteHandle(handleOf(row), kind === 'more', kind === 'more' ? 1 : 2, langOf(row), xLearnContext());
-  let hidden = 0;
-  if (kind === 'less') {
-    store.setFlag('hidden', id, true);
-    // Stories not yet read that share enough of those topics go too (one shared generic word is not enough: the sum must pass -2).
-    const feedback = store.feedbackTopics();
-    for (const other of store.unreadReady()) {
-      if (other.id !== id && tasteOf(JSON.parse(other.topics ?? '[]'), feedback) <= -2) { store.setFlag('hidden', other.id, true); hidden += 1; }
-    }
-  }
-  return { ok: true, topics, hidden };
-}
-
-// What the reader does without saying anything, as a smaller nudge than "more / less". kind: open | read | dwell | skip | ask | save | share.
-const SIGNALS = { open: 0.1, read: 0.2, dwell: 0.15, skip: -0.1, ask: 0.4, save: 0.5, share: 0.5 };
-const SEEN_BY = new Set(['open', 'read', 'dwell', 'skip', 'ask', 'save', 'share']);
+// What the reader does: kept only so the feed knows a card was seen, and to rate-limit the client.
+// kind: open | read | dwell | skip | ask | save | share.
+const SIGNALS = new Set(['open', 'read', 'dwell', 'skip', 'ask', 'save', 'share']);
 const RATE_PER_MIN = 120;
 export function signalOn(id, kind, ms) {
   const row = store.getItem(id);
-  if (!row || !(kind in SIGNALS)) return null;
+  if (!row || !SIGNALS.has(kind)) return null;
   const now = Date.now();
   if (store.signalCount(now - 60_000) >= RATE_PER_MIN) return { ok: false, limited: true };
   // The same signal on the same card counts once in ten minutes (a dwell once in thirty).
   if (store.signalSeen(id, kind, now - (kind === 'dwell' ? 30 : 10) * 60_000)) return { ok: true, counted: false };
   const dwell = Math.max(0, Math.min(600_000, Number(ms) || 0));
-  let delta = SIGNALS[kind];
-  if (kind === 'dwell') delta = dwell >= 6000 ? SIGNALS.dwell * Math.min(2, dwell / 12_000 + 0.5) : 0;
   store.addSignal(id, kind, dwell || null);
-  if (SEEN_BY.has(kind)) store.markSeen([id]);
-  if (delta) store.nudge(topicsOf(row), row.source, delta);
-  if (handleOf(row) && delta > 0.3) noteHandle(handleOf(row), true, 1, langOf(row), xLearnContext());
-  return { ok: true, counted: true, delta };
+  store.markSeen([id]);
+  return { ok: true, counted: true };
 }
 export function markSeen(ids) {
   const clean = (Array.isArray(ids) ? ids : []).map(String).filter((i) => /^[a-f0-9]{16}$/.test(i)).slice(0, 100);
   store.markSeen(clean);
   return { ok: true, count: clean.length };
 }
-export const topicsView = () => store.listTopics().filter((t) => Math.abs(t.weight) >= 0.3);
-export const forgetTopic = (token) => store.removeTopic(String(token).slice(0, 40));
 
 export async function readerOf(id) {
   const row = store.getItem(id);

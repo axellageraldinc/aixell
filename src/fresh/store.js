@@ -19,8 +19,6 @@ db.exec(`
   );
   CREATE INDEX IF NOT EXISTS items_ready ON items (status, hidden, published DESC);
   CREATE INDEX IF NOT EXISTS items_saved ON items (saved, saved_at DESC);
-  CREATE TABLE IF NOT EXISTS topics (token TEXT PRIMARY KEY, weight REAL NOT NULL);
-  CREATE TABLE IF NOT EXISTS weights (source TEXT PRIMARY KEY, weight REAL NOT NULL);
   CREATE TABLE IF NOT EXISTS kv (k TEXT PRIMARY KEY, v TEXT NOT NULL);
   CREATE TABLE IF NOT EXISTS signals (id TEXT NOT NULL, kind TEXT NOT NULL, ms INTEGER, at INTEGER NOT NULL);
   CREATE INDEX IF NOT EXISTS signals_at ON signals (at);
@@ -29,6 +27,10 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS glossary (term TEXT PRIMARY KEY, decision TEXT NOT NULL, source TEXT NOT NULL, bad TEXT, form TEXT, hits INTEGER NOT NULL DEFAULT 0, updated_at INTEGER NOT NULL);
   CREATE TABLE IF NOT EXISTS health (source TEXT PRIMARY KEY, ok INTEGER, last_ok INTEGER, fails INTEGER NOT NULL DEFAULT 0, error TEXT, count INTEGER NOT NULL DEFAULT 0);
 `);
+
+// The taught-taste store (topic and source weights learned from "more / less" and from the reader's
+// clicks) is gone: an older database loses those tables here, so no learned preference survives.
+db.exec('DROP TABLE IF EXISTS topics; DROP TABLE IF EXISTS weights;');
 
 // Columns added after the first version (an old database gains them in place).
 const have = new Set(db.prepare('PRAGMA table_info(items)').all().map((c) => c.name));
@@ -72,19 +74,11 @@ const stmts = {
   corroborate: q('UPDATE items SET outlets = ?, also = ?, score = score + 0.4 WHERE id = ?'),
   window: q("SELECT id, title, source, cat, status, score, outlets, also, image, llm, ready_at, read_at, seen_at, saved, topics FROM items WHERE status IN ('new','ready') AND hidden = 0 AND first_seen > ?"),
   dup: q("UPDATE items SET status = 'dup' WHERE id = ? AND saved = 0 AND seen_at IS NULL"), // a card the reader has seen or saved is never folded away
-  unread: q("SELECT id, topics FROM items WHERE status = 'ready' AND hidden = 0 AND saved = 0 AND read_at IS NULL"),
-  skipped: q("SELECT * FROM items WHERE status = 'skip' AND published > ?"),
-  revive: q("UPDATE items SET status = 'new' WHERE id = ? AND status = 'skip'"),
   pending: q("SELECT * FROM items WHERE status = 'new' AND triaged = 1 ORDER BY (source IN ('x', 'w-x')) DESC, score DESC LIMIT ?"),
   ready: q(`UPDATE items SET status = 'ready', title_local = @title_local, summary = @summary, why = @why, topics = @topics, image = @image, llm = @llm, ready_at = @ready_at, writer = @writer WHERE id = @id`),
   drop: q("UPDATE items SET status = 'skip' WHERE id = ?"),
   setFlag: { saved: q('UPDATE items SET saved = ?, saved_at = ? WHERE id = ?'), hidden: q('UPDATE items SET hidden = ? WHERE id = ?'), read: q('UPDATE items SET read_at = ? WHERE id = ?') },
   setReader: q('UPDATE items SET reader = ? WHERE id = ?'),
-  topic: q('INSERT INTO topics (token, weight) VALUES (?, ?) ON CONFLICT(token) DO UPDATE SET weight = max(-3, min(3, weight + excluded.weight))'),
-  weight: q('INSERT INTO weights (source, weight) VALUES (?, ?) ON CONFLICT(source) DO UPDATE SET weight = max(-1.5, min(1.5, weight + excluded.weight))'),
-  topics: q('SELECT token, weight FROM topics'),
-  weights: q('SELECT source, weight FROM weights'),
-  dropTopic: q('DELETE FROM topics WHERE token = ?'),
   health: q(`INSERT INTO health (source, ok, last_ok, fails, error, count) VALUES (@source, @ok, @last_ok, @fails, @error, @count)
              ON CONFLICT(source) DO UPDATE SET ok = @ok, last_ok = coalesce(@last_ok, last_ok), fails = CASE WHEN @ok = 1 THEN 0 ELSE fails + 1 END, error = @error, count = @count`),
   healthAll: q('SELECT * FROM health'),
@@ -98,18 +92,10 @@ export const recentSigs = (since) => stmts.recent.all(since);
 export const corroborate = (id, outlets, also) => stmts.corroborate.run(outlets, JSON.stringify(also), id);
 export const windowItems = (since) => stmts.window.all(since);
 export const markDup = (id) => stmts.dup.run(id);
-export const unreadReady = () => stmts.unread.all();
-export const skippedSince = (since) => stmts.skipped.all(since);
-export const revive = (id) => stmts.revive.run(id);
 export const pendingItems = (limit) => stmts.pending.all(limit);
 export const markReady = (row) => stmts.ready.run({ writer: null, ...row, ready_at: Date.now() });
 export const markSkipped = (id) => stmts.drop.run(id);
 export const setReader = (id, text) => stmts.setReader.run(text, id);
-export const feedbackTopics = () => new Map(stmts.topics.all().map((r) => [r.token, r.weight]));
-export const feedbackSources = () => new Map(stmts.weights.all().map((r) => [r.source, r.weight]));
-export const listTopics = () => stmts.topics.all().sort((a, b) => a.weight - b.weight);
-export const removeTopic = (token) => stmts.dropTopic.run(token);
-export const nudge = (tokens, source, delta) => { for (const t of tokens) stmts.topic.run(t, delta); stmts.weight.run(source, delta / 3); };
 export const recordHealth = (source, ok, error, count) => stmts.health.run({ source, ok: ok ? 1 : 0, fails: ok ? 0 : 1, last_ok: ok ? Date.now() : null, error: error ? String(error).slice(0, 160) : null, count });
 export const healthAll = () => stmts.healthAll.all();
 export const purge = (before) => stmts.purge.run(before);

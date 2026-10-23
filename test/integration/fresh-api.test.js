@@ -96,24 +96,8 @@ test('save, unsave, hide and read change what the lists show', async () => {
 
 test('actions on an unknown card are 404, and malformed ids do not reach the store', async () => {
   assert.equal((await me.post(`/api/fresh/${'0'.repeat(16)}/save`, {})).data.error.code, 'no_item');
-  assert.equal((await me.post(`/api/fresh/${'0'.repeat(16)}/feedback`, { kind: 'more' })).status, 404);
   assert.equal((await me.post('/api/fresh/zzz/save', {})).status, 404);
   assert.equal((await me.post(`/api/fresh/${'0'.repeat(16)}/explode`, {})).status, 404);
-});
-
-test('feedback: "more" teaches topics; "less" hides the card', async () => {
-  const id = (await me.get('/api/fresh?mode=latest&limit=1&cat=pcgaming')).data.items[0].id;
-  const more = await me.post(`/api/fresh/${id}/feedback`, { kind: 'more' });
-  assert.equal(more.status, 200);
-  assert.ok(more.data.topics.length > 0);
-  const topics = (await me.get('/api/fresh/settings')).data.topics;
-  assert.ok(topics.some((t) => more.data.topics.includes(t.token) && t.weight > 0));
-  const less = await me.post(`/api/fresh/${id}/feedback`, { kind: 'less' });
-  assert.equal(less.status, 200);
-  assert.ok(!(await me.get('/api/fresh?mode=latest&limit=30&cat=pcgaming')).data.items.some((i) => i.id === id));
-  assert.equal((await me.post(`/api/fresh/${id}/feedback`, { kind: 'sideways' })).status, 404);
-  const forget = more.data.topics[0];
-  assert.equal((await me.delete(`/api/fresh/topics/${encodeURIComponent(forget)}`)).status, 200);
 });
 
 test('signals: counted once per card and kind, unknown kinds refused, the rate limit answers 429', async () => {
@@ -121,15 +105,12 @@ test('signals: counted once per card and kind, unknown kinds refused, the rate l
   const [a, b] = items;
   const open = await me.post(`/api/fresh/${a.id}/signal`, { kind: 'open' });
   assert.deepEqual([open.status, open.data.counted], [200, true]);
-  assert.ok(open.data.delta > 0);
   const again = await me.post(`/api/fresh/${a.id}/signal`, { kind: 'open' });
   assert.equal(again.data.counted, false, 'the same signal on the same card counts once in ten minutes');
   assert.equal((await me.post(`/api/fresh/${a.id}/signal`, { kind: 'telepathy' })).data.error.code, 'bad_signal');
   assert.equal((await me.post(`/api/fresh/${'0'.repeat(16)}/signal`, { kind: 'open' })).status, 400);
-  const quick = await me.post(`/api/fresh/${b.id}/signal`, { kind: 'dwell', ms: 1000 });
-  assert.equal(quick.data.delta, 0, 'a glance is not interest');
-  const long = await me.post(`/api/fresh/${b.id}/signal`, { kind: 'skip' });
-  assert.ok(long.data.delta < 0);
+  assert.equal((await me.post(`/api/fresh/${b.id}/signal`, { kind: 'dwell', ms: 1000 })).status, 200);
+  assert.equal((await me.post(`/api/fresh/${b.id}/signal`, { kind: 'skip' })).status, 200);
   // 120 signals a minute are allowed; the rest are limited.
   let limited = null;
   for (const item of items) {

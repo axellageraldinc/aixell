@@ -30,9 +30,9 @@ Made-up demo stories, not real articles. Dark and light themes, desktop and phon
 |---|---|
 | ![Feed, desktop, dark](docs/screenshots/desktop-feed-dark.png) | ![Feed, desktop, light](docs/screenshots/desktop-feed-light.png) |
 
-| Feed (phone) | Sources and taste (phone) | Sources and taste (desktop) |
+| Feed (phone) | Feed settings (phone) | Feed settings (desktop) |
 |---|---|---|
-| <img src="docs/screenshots/phone-feed-dark.png" width="240" alt="Feed, phone, dark"> | <img src="docs/screenshots/phone-sources-light.png" width="240" alt="Sources and taste, phone, light"> | <img src="docs/screenshots/desktop-sources-dark.png" width="360" alt="Sources and taste, desktop, dark"> |
+| <img src="docs/screenshots/phone-feed-dark.png" width="240" alt="Feed, phone, dark"> | <img src="docs/screenshots/phone-sources-light.png" width="240" alt="Feed settings, phone, light"> | <img src="docs/screenshots/desktop-sources-dark.png" width="360" alt="Feed settings, desktop, dark"> |
 
 ## Architecture
 

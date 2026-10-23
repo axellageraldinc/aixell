@@ -1,5 +1,5 @@
 // "Fresh": the home timeline of the Feed style. Short, readable cards about what is new (PC gaming, console, PC building, AI,
-// security), gathered and ranked by the server ("For you" or newest first); each card can be read in place, saved, turned into a chat, or taught ("more like this" / "less").
+// security), gathered and ranked by the server ("For you" or newest first); each card can be read in place, saved, turned into a chat, or saved.
 // The list is cached on the phone, so the app opens on what you saw last while the news is checked in the background;
 // it loads further pages as you scroll, and a small pill says when something newer is waiting.
 import { h } from './dom.js';
@@ -94,9 +94,6 @@ export function createFresh({ scroller, ask }) {
     more.addEventListener('click', (event) => {
       event.stopPropagation();
       openMenu(more, [
-        { label: t('feed.card.moreLikeThis'), action: () => teach(item, 'more') },
-        { label: t('feed.card.lessLikeThis'), action: () => teach(item, 'less') },
-        { separator: true },
         { label: t('feed.card.copyLink'), icon: 'copy', action: async () => notify((await copyText(item.url)) ? t('feed.card.linkCopied') : t('common.copyFailed')) },
       ], t('feed.card.actions'));
     });
@@ -180,17 +177,6 @@ export function createFresh({ scroller, ask }) {
     catch { item.saved = !item.saved; syncSave(item); notify(t('feed.reader.saveFailed')); }
     if (st.cat === 'saved' && !item.saved) list.querySelector(`[data-id="${item.id}"]`)?.remove();
   }
-  async function teach(item, kind) {
-    try {
-      const res = await api(`/api/fresh/${item.id}/feedback`, { method: 'POST', body: { kind } });
-      if (kind === 'less') {
-        st.items = st.items.filter((i) => i.id !== item.id); list.querySelector(`[data-id="${item.id}"]`)?.remove(); empty();
-        notify(res.hidden ? t('feed.card.lessDoneHidden', { n: res.hidden }) : t('feed.card.lessDone'));
-        if (res.hidden) reload({ keepScroll: true });
-      } else notify(t('feed.card.moreDone'));
-    } catch { notify(t('feed.card.feedbackFailed')); }
-  }
-
   // ---------- list state ----------
   function empty() {
     foot.replaceChildren();

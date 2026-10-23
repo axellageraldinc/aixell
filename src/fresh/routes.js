@@ -6,7 +6,7 @@ import { reloadCategories } from './profile.js';
 import { categoryEditorView, saveCategories } from './categories.js';
 import { ingest as ingestConnector } from '../connectors/ingest.js';
 import * as glossary from './glossary.js';
-import { actOn, addSource, bootstrapProgress, runBootstrap, feedbackOn, forgetTopic, freshStatus, getFreshSettings, hasImage, imageFile, ingest, ingestToken, listFresh, localeInfo, markSeen, pollFresh, readerOf, refreshNow, removeSource, setFreshSettings, signalOn, sourcesView, toggleSource, topicsView } from './index.js';
+import { actOn, addSource, bootstrapProgress, runBootstrap, freshStatus, getFreshSettings, hasImage, imageFile, ingest, ingestToken, listFresh, localeInfo, markSeen, pollFresh, readerOf, refreshNow, removeSource, setFreshSettings, signalOn, sourcesView, toggleSource } from './index.js';
 
 const ID = /^[a-f0-9]{16}$/;
 const same = (a, b) => { const x = Buffer.from(String(a)); const y = Buffer.from(String(b)); return x.length === y.length && crypto.timingSafeEqual(x, y); };
@@ -72,7 +72,7 @@ export async function freshRoute(req, res, url) {
     res.writeHead(200, { ...SECURITY_HEADERS, 'Content-Type': 'image/jpeg', 'Content-Length': fs.statSync(file).size, 'Cache-Control': 'private, max-age=604800, immutable' });
     return fs.createReadStream(file).pipe(res);
   }
-  if (a === 'settings' && method === 'GET') return sendJson(res, 200, { ...getFreshSettings(), sources: sourcesView(), categories: CATEGORIES, topics: topicsView(), ingest: { url: '/api/fresh/ingest' }, ...localeInfo() });
+  if (a === 'settings' && method === 'GET') return sendJson(res, 200, { ...getFreshSettings(), sources: sourcesView(), categories: CATEGORIES, ingest: { url: '/api/fresh/ingest' }, ...localeInfo() });
   if (a === 'settings' && method === 'PUT') {
     const body = await readJson(req, 4096);
     if (body.catOrder !== undefined && !Array.isArray(body.catOrder)) throw new HttpError(400, 'catOrder must be a list.', 'bad_order');
@@ -108,17 +108,10 @@ export async function freshRoute(req, res, url) {
     if (!removeSource(b)) throw new HttpError(404, 'Only sources you added yourself can be removed.', 'no_source');
     return sendJson(res, 200, { ok: true });
   }
-  if (a === 'topics' && method === 'DELETE' && b) { forgetTopic(decodeURIComponent(b)); return sendJson(res, 200, { ok: true }); }
 
   if (ID.test(a ?? '')) {
     if (b === 'reader' && method === 'GET') {
       const out = await readerOf(a);
-      if (!out) throw new HttpError(404, 'Item not found.', 'no_item');
-      return sendJson(res, 200, out);
-    }
-    if (b === 'feedback' && method === 'POST') {
-      const body = await readJson(req, 1024);
-      const out = feedbackOn(a, body.kind);
       if (!out) throw new HttpError(404, 'Item not found.', 'no_item');
       return sendJson(res, 200, out);
     }

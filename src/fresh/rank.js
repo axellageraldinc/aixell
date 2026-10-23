@@ -54,7 +54,7 @@ export function categoryOf(item) {
   return CATEGORIES[guess] ? guess : CATEGORIES[item.cat] ? item.cat : PRIMARY_CAT;
 }
 
-export function scoreOf(item, { outlets = 1, feedback = new Map(), sourceWeights = new Map(), now = Date.now(), boost = 0 } = {}) {
+export function scoreOf(item, { outlets = 1, now = Date.now(), boost = 0 } = {}) {
   const text = `${item.title} ${item.snippet ?? ''}`;
   const cat = categoryOf(item);
   const flagged = stackFlag(item);
@@ -70,10 +70,7 @@ export function scoreOf(item, { outlets = 1, feedback = new Map(), sourceWeights
   const points = item.meta?.points ? Math.min(2, Math.log10(1 + item.meta.points) / 1.4) : 0;
   const hype = item.meta?.gh ? Math.min(2, Math.log10(1 + (item.meta.gh.d24 ?? 0)) / 1.5) : 0;
   const likes = item.meta?.likes ? Math.min(1, Math.log10(1 + item.meta.likes) / 3) : 0;
-  let learned = 0;
-  for (const token of tokens(item.title)) learned += feedback.get(token) ?? 0;
-  learned = Math.max(-3, Math.min(3, learned)) + (sourceWeights.get(item.source) ?? 0);
-  return 3 * fresh + 2 * keywordRelevance(cat, text) + (flagged ? 1.5 : 0) + boost * 3 + corroboration + points + hype + likes + learned;
+  return 3 * fresh + 2 * keywordRelevance(cat, text) + (flagged ? 1.5 : 0) + boost * 3 + corroboration + points + hype + likes;
 }
 
 // Merges items about the same story (same canonical URL, or nearly the same title) into the first one; `also` lists the outlets.
