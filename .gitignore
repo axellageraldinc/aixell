@@ -1,0 +1,21 @@
+# Secrets and runtime data: never commit
+.env
+.env.*
+!.env.example
+data/
+*.pem
+*.key
+auth.json
+config.json
+config.jsonc
+
+# Dependencies and build leftovers
+node_modules/
+__pycache__/
+*.pyc
+*.log
+*.bak*
+*.tmp
+
+# Local tooling
+.claude/

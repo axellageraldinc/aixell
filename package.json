@@ -1,0 +1,16 @@
+{
+  "name": "aixell",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "A private web app for chatting with Hermes agents, with a social-style news feed. Login with password and authenticator code.",
+  "author": "Axell",
+  "license": "AGPL-3.0-only",
+  "scripts": {
+    "start": "node server.js",
+    "set-password": "node scripts/set-password.js",
+    "test": "node --test \"test/unit/**/*.test.js\" \"test/integration/**/*.test.js\"",
+    "check": "node scripts/check-syntax.js && npm test",
+    "test:ui": "node --test --test-concurrency=1 \"test/ui/**/*.test.js\""
+  },
+  "engines": { "node": ">=22.5" }
+}
