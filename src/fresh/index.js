@@ -52,8 +52,8 @@ if (settings.llmPerMin) setPerMin(settings.llmPerMin);
 const persist = () => { fs.writeFileSync(`${settingsFile}.tmp`, JSON.stringify(settings, null, 2), { mode: 0o600 }); fs.renameSync(`${settingsFile}.tmp`, settingsFile); };
 
 // The order of the category chips (after "All"); "saved" is a chip too. Unknown ids are dropped, missing ones follow in default order.
-const DEFAULT_ORDER = [...CAT_IDS, 'saved'];
 export const normalizeCatOrder = (list) => {
+  const DEFAULT_ORDER = [...CAT_IDS, 'saved'];
   const seen = new Set();
   const first = (Array.isArray(list) ? list : []).filter((id) => DEFAULT_ORDER.includes(id) && !seen.has(id) && seen.add(id));
   return [...first, ...DEFAULT_ORDER.filter((id) => !seen.has(id))];

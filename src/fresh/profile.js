@@ -9,28 +9,39 @@ import { loadCategories } from './categories.js';
 import { loadTaste } from './taste.js';
 import { loadRules } from './filters.js';
 
-const categories = loadCategories();
-
-// id -> label, in the configured order.
-export const CATEGORIES = Object.fromEntries(categories.map((category) => [category.id, category.label]));
-export const CAT_IDS = categories.map((category) => category.id);
-export const CATEGORY_DEFS = categories;
+// The category tables are exported as live objects: reloadCategories() refills them in place, so the editor
+// in Settings takes effect without a restart in every module that imported them.
+export const CATEGORIES = {};
+export const CAT_IDS = [];
+export const CATEGORY_DEFS = [];
+export const HALF_LIFE_H = {};
+export const KEYWORDS = {};
 
 // The category to fall back to when a story names one that this deployment does not have (the
 // source list still ships the categories of the example deployment).
-export const PRIMARY_CAT = CAT_IDS[0] ?? 'tech';
+export let PRIMARY_CAT = 'tech';
 // The category that means "security", when the deployment has one.
-export const SECURITY_CAT = CAT_IDS.includes('security') ? 'security' : null;
+export let SECURITY_CAT = null;
 
-// How long a story stays interesting (hours until its freshness halves).
-export const HALF_LIFE_H = Object.fromEntries(categories.map((category) => [category.id, category.halfLifeHours]));
+// Per category: words that raise (pos) or lower (neg) a story before a model has looked at it, and as a fallback when no model
+// answers. Matched on title + snippet. HALF_LIFE_H: how long a story stays interesting (hours until its freshness halves).
+export function reloadCategories(opts) {
+  const categories = loadCategories(opts);
+  for (const table of [CATEGORIES, HALF_LIFE_H, KEYWORDS]) for (const key of Object.keys(table)) delete table[key];
+  for (const category of categories) {
+    CATEGORIES[category.id] = category.label;
+    HALF_LIFE_H[category.id] = category.halfLifeHours;
+    KEYWORDS[category.id] = { pos: category.posRe, neg: category.negRe };
+  }
+  CAT_IDS.splice(0, CAT_IDS.length, ...categories.map((category) => category.id));
+  CATEGORY_DEFS.splice(0, CATEGORY_DEFS.length, ...categories);
+  PRIMARY_CAT = CAT_IDS[0] ?? 'tech';
+  SECURITY_CAT = CAT_IDS.includes('security') ? 'security' : null;
+}
+reloadCategories();
 
 // Handed to System One as the reader's "state" on every scoring call.
 export const PROFILE = loadTaste();
-
-// Per category: words that raise (pos) or lower (neg) a story before a model has looked at it, and as a fallback when no model
-// answers. Matched on title + snippet.
-export const KEYWORDS = Object.fromEntries(categories.map((category) => [category.id, { pos: category.posRe, neg: category.negRe }]));
 
 // The active filter rules, flattened from the packs. `drop` rules hide a story outright; `soft`
 // rules hide it unless the rule's `unless` names another rule that matches; `allow` rules only

@@ -2,6 +2,8 @@ import fs from 'node:fs';
 import crypto from 'node:crypto';
 import { HttpError, SECURITY_HEADERS, readJson, sendJson } from '../http.js';
 import { CATEGORIES } from './feeds.js';
+import { reloadCategories } from './profile.js';
+import { categoryEditorView, saveCategories } from './categories.js';
 import { ingest as ingestConnector } from '../connectors/ingest.js';
 import * as glossary from './glossary.js';
 import { actOn, addSource, bootstrapProgress, runBootstrap, feedbackOn, forgetTopic, freshStatus, getFreshSettings, hasImage, imageFile, ingest, ingestToken, listFresh, localeInfo, markSeen, pollFresh, readerOf, refreshNow, removeSource, setFreshSettings, signalOn, sourcesView, toggleSource, topicsView } from './index.js';
@@ -76,6 +78,13 @@ export async function freshRoute(req, res, url) {
     if (body.catOrder !== undefined && !Array.isArray(body.catOrder)) throw new HttpError(400, 'catOrder must be a list.', 'bad_order');
     setFreshSettings({ enabled: body.enabled, intervalMin: Number(body.intervalMin), x: body.x, catOrder: body.catOrder, notify: body.notify, llmPerMin: Number(body.llmPerMin) });
     return sendJson(res, 200, getFreshSettings());
+  }
+  if (a === 'categories' && method === 'GET') return sendJson(res, 200, categoryEditorView());
+  if (a === 'categories' && method === 'PUT') {
+    const body = await readJson(req, 32768);
+    try { saveCategories(body.categories); } catch (err) { throw new HttpError(400, err.message, 'bad_categories'); }
+    reloadCategories();
+    return sendJson(res, 200, { ...categoryEditorView(), catOrder: getFreshSettings().catOrder, labels: CATEGORIES });
   }
   if (a === 'glossary' && !b && method === 'GET') return sendJson(res, 200, { entries: glossary.entries() });
   if (a === 'glossary' && b && method === 'PUT') {

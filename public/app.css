@@ -1278,3 +1278,22 @@ a.att-file:hover { border-color: color-mix(in oklab, var(--color-primary) 45%, t
 .boot-splash.is-gone { opacity: 0; pointer-events: none; }
 @keyframes boot-pulse { 50% { transform: scale(0.94); opacity: 0.8; } }
 @media (prefers-reduced-motion: reduce) { .boot-splash img { animation: none; } .boot-splash { transition: none; } }
+
+/* Usage: models not used yet, one compact block each */
+.up-idle > .up-idle-row { padding: 8px 0; border-top: 1px solid var(--hairline); display: grid; gap: 2px; }
+.up-idle > summary + .up-idle-row { border-top: 0; }
+.up-idle-name { font-size: 13px; font-weight: 700; overflow-wrap: anywhere; }
+.up-idle-price { font-size: 12px; color: var(--fgColor-muted); font-variant-numeric: tabular-nums; }
+.up-idle { gap: 0; }
+
+/* Usage chart: scale, grid and per-bar values */
+.bar-chart .grid { stroke: var(--borderColor-default); stroke-dasharray: 2 3; opacity: 0.6; }
+.bar-chart .bar-value { font-size: 11px; fill: var(--fgColor-default); font-variant-numeric: tabular-nums; }
+
+/* Native dropdowns: the open list follows the theme instead of the browser's white default */
+:root[data-theme="aixell-dark"] select { color-scheme: dark; }
+:root[data-theme="aixell"] select { color-scheme: light; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme]) select { color-scheme: dark; } }
+select.select { cursor: pointer; padding-inline: 12px 32px; border-radius: 10px; }
+select.select option { background: var(--bgColor-default); color: var(--fgColor-default); padding: 8px 12px; }
+select.select option:checked { background: var(--bgColor-accent-muted); }

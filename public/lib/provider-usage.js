@@ -73,10 +73,10 @@ function periodView(data) {
         h('div', { className: 'uw-top' }, h('span', { className: 'up-name', title: m.model }, m.model), h('span', { className: 'uw-pct' }, t('usage.provider.planValue', { amount: money(m.value) }))),
         m.price ? h('div', { className: 'uw-reset' }, t('usage.provider.price', { price: m.price })) : null,
         h('div', { className: 'uw-reset' }, stats(m))))),
-      idleSection(t('usage.provider.idle'), t('usage.provider.modelCount', { n: idle.length }), idle.map((m) => h('div', { className: 'uw' },
-        h('div', { className: 'uw-top' }, h('span', { className: 'up-name', title: m.model }, m.model)),
+      idleSection(t('usage.provider.idle'), t('usage.provider.modelCount', { n: idle.length }), idle.map((m) => h('div', { className: 'up-idle-row' },
+        h('div', { className: 'up-idle-name', title: m.model }, m.model),
         m.purpose ? h('div', { className: 'up-purpose' }, m.purpose) : null,
-        m.price ? h('div', { className: 'uw-reset' }, t('usage.provider.price', { price: m.price })) : null))),
+        m.price ? h('div', { className: 'up-idle-price' }, m.price) : null))),
       h('div', { className: 'uw-reset', title: t('usage.provider.barHint') }, t('usage.provider.total', { n: fmtInt(p.requests), tokens: fmtCompact(p.tokens) })),
     ].filter(Boolean));
   };

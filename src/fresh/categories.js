@@ -108,3 +108,45 @@ export function loadCategories(opts = {}) {
   if (!out.length) return DEFAULT_CATEGORIES.map((entry) => compileCategory(entry)).filter(Boolean);
   return out;
 }
+
+const ID_RE = /^[a-z0-9][a-z0-9-]{0,23}$/;
+const RESERVED = new Set(['all', 'saved']);
+export const MAX_CATEGORIES = 12;
+
+// What the editor in Settings shows: the raw entries, and whether it may change them (not when config.json owns the list).
+export function categoryEditorView(opts = {}) {
+  const { list, from } = categorySource(opts);
+  const entries = list.filter(isPlainObject).map((entry) => ({
+    id: String(entry.id ?? ''),
+    label: typeof entry.label === 'string' && entry.label ? entry.label : String(entry.id ?? ''),
+    halfLifeHours: Number.isFinite(entry.halfLifeHours) && entry.halfLifeHours > 0 ? entry.halfLifeHours : 24,
+    keywords: { pos: typeof entry.keywords?.pos === 'string' ? entry.keywords.pos : '', neg: typeof entry.keywords?.neg === 'string' ? entry.keywords.neg : '' },
+  }));
+  return { categories: entries, from, editable: from !== 'config' };
+}
+
+// Checks an edited list and writes it to <dataDir>/categories.json. Throws an Error with a reader-facing message.
+export function saveCategories(list, { dataDir = config.dataDir, settings = config.fresh ?? {} } = {}) {
+  if (Array.isArray(settings.categories) && settings.categories.length) throw new Error('The categories are set in config.json; edit them there.');
+  if (!Array.isArray(list) || !list.length) throw new Error('Keep at least one category.');
+  if (list.length > MAX_CATEGORIES) throw new Error(`At most ${MAX_CATEGORIES} categories.`);
+  const seen = new Set();
+  const clean = list.map((entry) => {
+    const id = String(entry?.id ?? '').trim();
+    if (!ID_RE.test(id) || RESERVED.has(id)) throw new Error(`"${id}" is not a usable id (lowercase letters, digits and dashes, up to 24).`);
+    if (seen.has(id)) throw new Error(`The id "${id}" is used twice.`);
+    seen.add(id);
+    const label = String(entry?.label ?? '').trim().slice(0, 40);
+    if (!label) throw new Error(`Category "${id}" needs a name.`);
+    const halfLifeHours = Math.max(1, Math.min(240, Math.round(Number(entry?.halfLifeHours)) || 24));
+    const pos = String(entry?.keywords?.pos ?? '').slice(0, 2000);
+    const neg = String(entry?.keywords?.neg ?? '').slice(0, 2000);
+    const out = { id, label, halfLifeHours, keywords: { pos, neg } };
+    if (!compileCategory(out, { onError: () => {} })) throw new Error(`The keywords of "${label}" are not a valid regular expression.`);
+    return out;
+  });
+  const file = path.join(dataDir, 'categories.json');
+  fs.writeFileSync(`${file}.tmp`, JSON.stringify({ categories: clean }, null, 2), { mode: 0o600 });
+  fs.renameSync(`${file}.tmp`, file);
+  return clean;
+}

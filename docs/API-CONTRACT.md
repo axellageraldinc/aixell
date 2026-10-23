@@ -149,6 +149,8 @@ Same session cookie as everything else; writes need `X-CSRF-Token`.
 | `GET /api/fresh/status` | – | `200` worker status |
 | `GET /api/fresh/poll` | `since` (number) | `200` what changed since that point |
 | `GET /api/fresh/settings` | – | `200` settings plus `sources`, `categories`, `topics`, `ingest`, locale info |
+| `GET /api/fresh/categories` | – | `200 {categories, from, editable}` |
+| `PUT /api/fresh/categories` | `{categories: [{id, label, halfLifeHours, keywords:{pos,neg}}]}` | `200` the saved list and `catOrder` · `400 bad_categories` (also when `config.json` owns the list) |
 | `PUT /api/fresh/settings` | `{enabled?, intervalMin?, x?, catOrder?, notify?, llmPerMin?}` | `200` updated settings · `400 bad_order` |
 | `POST /api/fresh/seen` | `{ids: string[]}` (body up to 8 KB) | `200` marks those stories as seen |
 | `GET /api/fresh/img/:id` | – | `200 image/jpeg`, cacheable for a week · `404 no_image` |

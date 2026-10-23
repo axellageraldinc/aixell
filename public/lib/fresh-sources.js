@@ -190,6 +190,54 @@ export async function openFreshSources({ onChange, onOrder } = {}) {
       h('p', { className: 'dlg-note' }, t('feed.order.hint')), ul, say);
   }
 
+  // The categories themselves: add, rename, retime and remove. Written to the data directory and live at once (no restart).
+  function categoriesBlock(editor) {
+    const rows = editor.categories.map((c) => ({ ...c, keywords: { ...c.keywords }, saved: true }));
+    const list = h('div', { className: 'fr-s-cats', 'data-testid': 'fresh-categories' });
+    const say = h('small', { className: 'fr-s-say', role: 'status' });
+    const slug = (text) => text.toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 24) || 'topic';
+    const uniqueId = (base) => { let id = base; for (let n = 2; rows.some((r) => r.id === id) || id === 'all' || id === 'saved'; n += 1) id = `${base.slice(0, 20)}-${n}`; return id; };
+    function rowView(row, i) {
+      const name = h('input', { type: 'text', className: 'input input-sm', value: row.label, maxlength: 40, 'aria-label': t('feed.cats.name'), placeholder: t('feed.cats.name') });
+      name.addEventListener('input', () => { row.label = name.value; });
+      const hours = h('input', { type: 'number', className: 'input input-sm', value: String(row.halfLifeHours), min: 1, max: 240, 'aria-label': t('feed.cats.halfLife') });
+      hours.addEventListener('input', () => { row.halfLifeHours = Number(hours.value); });
+      const kw = (key, label) => {
+        const area = h('textarea', { className: 'textarea textarea-sm', rows: 2, spellcheck: 'false', 'aria-label': label, placeholder: label }, row.keywords[key]);
+        area.addEventListener('input', () => { row.keywords[key] = area.value; });
+        return area;
+      };
+      const remove = h('button', { type: 'button', className: 'ibtn', 'aria-label': t('feed.cats.remove', { label: row.label || row.id }), disabled: rows.length <= 1, onClick: () => {
+        if (row.saved && !window.confirm(t('feed.cats.confirmRemove', { label: row.label || row.id }))) return;
+        rows.splice(i, 1); draw();
+      } }, icon('trash', 16));
+      return h('div', { className: 'fr-s-catrow', 'data-id': row.id },
+        h('div', { className: 'fr-s-catmain' }, name, h('label', { className: 'fr-s-hours' }, hours, h('small', {}, t('feed.cats.hours'))), remove),
+        h('details', { className: 'dlg-details' }, h('summary', {}, t('feed.cats.keywords')),
+          h('p', { className: 'dlg-note' }, t('feed.cats.keywordsHint')), kw('pos', t('feed.cats.pos')), kw('neg', t('feed.cats.neg'))));
+    }
+    function draw() { list.replaceChildren(...rows.map(rowView)); }
+    const add = h('button', { type: 'button', className: 'btn btn-sm', 'data-testid': 'fresh-cat-add', onClick: () => {
+      rows.push({ id: '', label: '', halfLifeHours: 24, keywords: { pos: '', neg: '' }, saved: false });
+      draw();
+      list.lastElementChild.querySelector('input')?.focus();
+    } }, t('feed.cats.add'));
+    const save = h('button', { type: 'button', className: 'btn btn-sm btn-primary', 'data-testid': 'fresh-cat-save' }, t('common.save'));
+    save.addEventListener('click', async () => {
+      for (const row of rows) if (!row.id) row.id = uniqueId(slug(row.label));
+      save.disabled = true; say.textContent = '';
+      try {
+        const res = await api('/api/fresh/categories', { method: 'PUT', body: { categories: rows.map(({ id, label, halfLifeHours, keywords }) => ({ id, label: label.trim(), halfLifeHours, keywords })) } });
+        changed = true; onOrder?.(res.catOrder);
+        await paint(); notify(t('feed.cats.saved'));
+      } catch (e) { say.textContent = e.message; } finally { save.disabled = false; }
+    });
+    draw();
+    if (!editor.editable) return h('section', { 'data-section': 'categories' }, h('h3', {}, t('feed.cats.title')), h('p', { className: 'dlg-note' }, t('feed.cats.locked')));
+    return h('section', { 'data-section': 'categories' }, h('h3', {}, t('feed.cats.title')), h('p', { className: 'dlg-note' }, t('feed.cats.hint')), list,
+      h('div', { className: 'fr-s-add' }, add, save), say);
+  }
+
   // Which English terms the cards keep as they are and which are translated. System One decides new ones; what you set here wins.
   function glossaryBlock(contentLanguage) {
     const out = h('div', { className: 'fr-s-gloss' }, h('p', { className: 'dlg-note' }, t('common.loading')));
@@ -280,7 +328,8 @@ export async function openFreshSources({ onChange, onOrder } = {}) {
 
   async function paint() {
     let data;
-    try { data = await api('/api/fresh/settings'); } catch (err) { body.replaceChildren(h('p', { className: 'dlg-note' }, err.message)); return; }
+    let editor;
+    try { [data, editor] = await Promise.all([api('/api/fresh/settings'), api('/api/fresh/categories')]); } catch (err) { body.replaceChildren(h('p', { className: 'dlg-note' }, err.message)); return; }
 
     // -- general
     const enabled = h('input', { type: 'checkbox', className: 'toggle toggle-sm', 'data-testid': 'fresh-enabled' });
@@ -307,6 +356,8 @@ export async function openFreshSources({ onChange, onOrder } = {}) {
       const list = real.filter((s) => s.cat === cid);
       return list.length ? h('div', { className: 'fr-s-group', 'data-cat': cid }, h('h4', {}, t('feed.source.group', { label, n: list.length })), h('div', { className: 'fr-s-list' }, list.map(sourceRow))) : null;
     });
+    const orphans = real.filter((s) => !data.categories[s.cat]);
+    if (orphans.length) groups.push(h('div', { className: 'fr-s-group', 'data-cat': '' }, h('h4', {}, t('feed.source.group', { label: t('feed.cats.other'), n: orphans.length })), h('div', { className: 'fr-s-list' }, orphans.map(sourceRow))));
     const url = h('input', { type: 'text', className: 'input input-sm', placeholder: t('feed.source.addPlaceholder'), 'aria-label': t('feed.source.addLabel'), 'data-testid': 'fresh-add-url', autocomplete: 'off', spellcheck: 'false' });
     const cat = h('select', { className: 'select select-sm', 'aria-label': t('feed.source.category') }, Object.entries(data.categories).map(([v, l]) => h('option', { value: v, selected: v === 'ai' }, l)));
     const msg = h('small', { className: 'fr-s-msg', role: 'status' });
@@ -336,7 +387,7 @@ export async function openFreshSources({ onChange, onOrder } = {}) {
     const worker = h('section', {}, h('h3', {}, t('feed.ingest.title')),
       h('p', { className: 'dlg-note' }, t('feed.ingest.hintBefore'), h('code', {}, `${location.origin}/api/fresh/ingest`), t('feed.ingest.hintAfter')),
       token);
-    body.replaceChildren(general, notifyBlock(data), orderBlock(data), sources, social, taste, glossaryBlock(data.contentLanguage ?? ''), worker, status());
+    body.replaceChildren(general, notifyBlock(data), orderBlock(data), categoriesBlock(editor), sources, social, taste, glossaryBlock(data.contentLanguage ?? ''), worker, status());
   }
   paint();
 }
