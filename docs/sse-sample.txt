@@ -1,0 +1,21 @@
+event: run.started
+data: {"user_message": {"role": "user", "content": "Reply with one word: hello"}, "runtime": {"provider": "", "model": "", "route_source": "global", "requested": {"provider": "", "model": ""}}, "session_id": "api_1792244533_32dd6cbf", "run_id": "run_a042fbd05ef84b819fdf6033f7f8a3ca", "seq": 1, "ts": 1792244534.0326214}
+
+event: message.started
+data: {"message": {"id": "msg_a206c3f1b7f94e80b47a7ebc4b1e6700", "role": "assistant"}, "session_id": "api_1792244533_32dd6cbf", "run_id": "run_a042fbd05ef84b819fdf6033f7f8a3ca", "seq": 2, "ts": 1792244534.03264}
+
+event: assistant.delta
+data: {"message_id": "msg_a206c3f1b7f94e80b47a7ebc4b1e6700", "delta": "hello", "session_id": "api_1792244533_32dd6cbf", "run_id": "run_a042fbd05ef84b819fdf6033f7f8a3ca", "seq": 3, "ts": 1792244536.522716}
+
+event: tool.progress
+data: {"message_id": "msg_a206c3f1b7f94e80b47a7ebc4b1e6700", "tool_name": "_thinking", "delta": "hello", "session_id": "api_1792244533_32dd6cbf", "run_id": "run_a042fbd05ef84b819fdf6033f7f8a3ca", "seq": 4, "ts": 1792244536.528108}
+
+event: assistant.completed
+data: {"session_id": "api_1792244533_32dd6cbf", "message_id": "msg_a206c3f1b7f94e80b47a7ebc4b1e6700", "content": "halo", "completed": true, "partial": false, "interrupted": false, "runtime": {"provider": "opencode-go", "model": "deepseek-v4.1-flash", "route_source": "global", "requested": {"provider": "", "model": ""}}, "run_id": "run_a042fbd05ef84b819fdf6033f7f8a3ca", "seq": 5, "ts": 1792244536.5484}
+
+event: run.completed
+data: {"session_id": "api_1792244533_32dd6cbf", "message_id": "msg_a206c3f1b7f94e80b47a7ebc4b1e6700", "completed": true, "partial": false, "interrupted": false, "messages": [{"role": "assistant", "content": "halo", "timestamp": 1792244536.5285635, "finish_reason": "stop", "reasoning": null}], "usage": {"input_tokens": 15947, "output_tokens": 3, "total_tokens": 15950, "runtime": {"provider": "opencode-go", "model": "deepseek-v4.1-flash", "route_source": "global", "requested": {"provider": "", "model": ""}}}, "runtime": {"provider": "opencode-go", "model": "deepseek-v4.1-flash", "route_source": "global", "requested": {"provider": "", "model": ""}}, "run_id": "run_a042fbd05ef84b819fdf6033f7f8a3ca", "seq": 6, "ts": 1792244536.5484176}
+
+event: done
+data: {"session_id": "api_1792244533_32dd6cbf", "run_id": "run_a042fbd05ef84b819fdf6033f7f8a3ca", "seq": 7, "ts": 1792244536.5484474}
+

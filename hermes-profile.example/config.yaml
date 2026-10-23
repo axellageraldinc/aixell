@@ -1,0 +1,25 @@
+# Minimal Hermes Agent config for a profile that only serves the web app's API
+# server. Copy it to ~/.hermes/profiles/<profile>/config.yaml and adjust the
+# model block. Provider keys belong in the profile's .env, never here.
+
+model:
+  # One model slot. Replace the provider and model with your own.
+  default: "<model>"
+  provider: "<provider>"
+  # api_key: "..."          # prefer the provider's env var instead
+  # base_url: "https://..."  # only for a custom OpenAI-compatible endpoint
+
+# The API server is how the web app talks to this profile. The port and key
+# come from API_SERVER_* in the profile's .env; only non-secret routing that
+# must differ from the defaults is listed here.
+gateway:
+  standalone: true
+  allow_all_users: false
+  startup_watchdog: true
+  restart_loop_guard:
+    max_restarts: 3
+    window_seconds: 60
+
+# Keep streaming enabled so replies arrive incrementally in the browser.
+streaming:
+  enabled: true

@@ -1,0 +1,34 @@
+{
+  "appName": "Example App",
+  "server": {
+    "port": 8300,
+    "hosts": ["127.0.0.1"],
+    "allowedHosts": ["app.example.com"],
+    "trustCloudflare": false,
+    "cookieSecure": false,
+    "sessionDays": 30,
+    "orphanStopMinutes": 20
+  },
+  "agents": ["default"],
+  "timezone": "UTC",
+  "push": {
+    "subject": "mailto:admin@example.invalid"
+  },
+  "allowInlineSecrets": false,
+  "providers": {
+    "example": {
+      "type": "openai-compatible",
+      "baseUrl": "https://llm.example.com/v1",
+      "apiKey": "env:EXAMPLE_API_KEY"
+    }
+  },
+  "fresh": {},
+  "connectors": [],
+  "notifications": {},
+  "budgets": {},
+  "capabilities": {},
+  "chat": {},
+  "covers": {},
+  "locale": {},
+  "telegramImport": {}
+}
