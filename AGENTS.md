@@ -18,7 +18,9 @@ npm run test:ui           # optional headless-browser smoke test (test/ui/)
 cd ui-build && npm ci && npm run build   # rebuild public/ui.css (only when changing styles)
 ```
 
-`npm run check` and `npm test` must be green before every commit.
+`npm run check` (syntax plus `npm test`) must be green before every commit.
+
+This repository is public and is the only copy. Whatever is pushed is public forever, so before every push: no secrets, no owner or host names, no private paths or session links (no `Claude-Session:` trailers), nothing from `data/` or `config.json`, and no internal planning notes. Keep those outside the repository.
 
 ## Structure
 
