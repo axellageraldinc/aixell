@@ -1,0 +1,24 @@
+# systemd --user unit for the Hermes API gateway of one profile.
+# Prefer `hermes --profile <profile> gateway install`, which writes its own
+# unit; this file is a reference copy for manual installs.
+#
+# Replace <profile> with the profile name, then:
+#   cp deploy/examples/hermes-gateway.service ~/.config/systemd/user/
+#   systemctl --user daemon-reload && systemctl --user enable --now hermes-gateway
+[Unit]
+Description=Hermes Agent Gateway (profile <profile>)
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+ExecStart=%h/.hermes/hermes-agent/.hermes/bin/hermes --profile <profile> gateway run
+WorkingDirectory=%h/.hermes/profiles/<profile>
+Environment=HERMES_HOME=%h/.hermes/profiles/<profile>
+Environment=HERMES_SUPERVISED_CHILD=1
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target

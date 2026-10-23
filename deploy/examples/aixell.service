@@ -1,0 +1,31 @@
+# systemd --user unit for the web app. Install as:
+#   mkdir -p ~/.config/systemd/user
+#   cp deploy/examples/aixell.service ~/.config/systemd/user/
+#   systemctl --user daemon-reload && systemctl --user enable --now aixell
+#   loginctl enable-linger "$USER"    # keep user services running after logout
+#
+# Edit WorkingDirectory below before installing. Do not put
+# secrets here: the login record, TOTP secret, and provider keys belong in
+# config.json, which can point at files with `file:` references.
+[Unit]
+Description=Hermes Web - private web chat for a Hermes agent profile
+After=network-online.target hermes-gateway.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=<install-dir>
+ExecStart=node server.js
+Restart=on-failure
+RestartSec=5
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+StandardOutput=journal
+StandardError=journal
+
+# The port and bind hosts are not set here: they come from `server.port` and
+# `server.hosts` in config.json (see config.example.json).
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,11 @@
+# Cloudflare Tunnel config for the web app.
+# Create the tunnel once with `cloudflared tunnel create <tunnel-id>`, then copy
+# this file to ~/.cloudflared/config.yml and fill in the placeholders.
+# The credentials file is a secret created by Cloudflare: never commit it.
+tunnel: <tunnel-id>
+credentials-file: ~/.cloudflared/<tunnel-id>.json
+no-autoupdate: true
+ingress:
+  - hostname: <hostname>
+    service: http://127.0.0.1:<port>
+  - service: http_status:404

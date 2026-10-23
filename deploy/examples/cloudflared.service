@@ -1,0 +1,21 @@
+# systemd --user unit for a Cloudflare Tunnel in front of the web app.
+# Replace <tunnel-id> with the tunnel UUID (or its name) and keep the config
+# file next to the credentials. Install as:
+#   cp deploy/examples/cloudflared.service ~/.config/systemd/user/
+#   systemctl --user daemon-reload && systemctl --user enable --now cloudflared
+[Unit]
+Description=Cloudflare Tunnel for the web app
+After=network-online.target aixell.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/cloudflared --no-autoupdate --config %h/.cloudflared/config.yml tunnel run <tunnel-id>
+Restart=on-failure
+RestartSec=5s
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=default.target

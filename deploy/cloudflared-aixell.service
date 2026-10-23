@@ -1,0 +1,17 @@
+# systemd --user unit for the tunnel. Install:  cp deploy/cloudflared-aixell.service ~/.config/systemd/user/
+[Unit]
+Description=Cloudflare Tunnel for aixell
+After=network-online.target aixell.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/cloudflared --no-autoupdate --config %h/.cloudflared/aixell.yml tunnel run <tunnel-name>
+Restart=on-failure
+RestartSec=5s
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=default.target

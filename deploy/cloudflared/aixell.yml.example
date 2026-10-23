@@ -1,0 +1,8 @@
+# Cloudflare Tunnel config. Create the tunnel once (see README), then fill in the two placeholders.
+tunnel: <TUNNEL-UUID>
+credentials-file: <home>/.cloudflared/<TUNNEL-UUID>.json   # secret: created by `cloudflared tunnel create`, never commit
+no-autoupdate: true
+ingress:
+  - hostname: aixell.example.com
+    service: http://127.0.0.1:8300
+  - service: http_status:404

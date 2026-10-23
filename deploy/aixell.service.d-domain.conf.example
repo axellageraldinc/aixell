@@ -1,0 +1,7 @@
+# Drop-in for the public hostname. Install as:
+#   mkdir -p ~/.config/systemd/user/aixell.service.d
+#   cp deploy/aixell.service.d-domain.conf.example ~/.config/systemd/user/aixell.service.d/domain.conf
+[Service]
+Environment=HERMES_WEB_ALLOWED_HOSTS=aixell.example.com
+Environment=HERMES_WEB_TRUST_CLOUDFLARE=1
+Environment=HERMES_WEB_COOKIE_SECURE=1

@@ -1,0 +1,23 @@
+# systemd --user unit. Install:  cp deploy/aixell.service ~/.config/systemd/user/
+# Replace <install-dir> with the absolute path of the repository. Then:
+#   systemctl --user daemon-reload && systemctl --user enable --now aixell
+#   loginctl enable-linger "$USER"        # keeps user services running after logout
+[Unit]
+Description=aixell - self-hosted news feed (Hermes Web)
+After=network-online.target hermes-gateway.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=<install-dir>
+ExecStart=/usr/bin/node server.js
+Restart=on-failure
+RestartSec=5
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target
