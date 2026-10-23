@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "username": "tester",
+  "algorithm": "scrypt",
+  "N": 131072,
+  "r": 8,
+  "p": 1,
+  "salt": "41b35071e0ef1f94a463629fa078e6c9a16679b012d85008398dc03528c44d4b",
+  "hash": "73526589356343bb2ba93b88db0d2972cac23fa7bfb1df26885ec2aecfb77add",
+  "totpSecret": "JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP",
+  "recoveryHashes": [
+    "fe9954e34d80f2df2be3cd4eafa4f5f4128a97d2b4dfd7670fc05143898e7f5e"
+  ]
+}

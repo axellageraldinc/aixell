@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:media="http://search.yahoo.com/mrss/" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <channel>
+    <title>Example Tech</title>
+    <link>https://example.com/</link>
+    <item>
+      <title><![CDATA[New GPU driver fixes stutter & crashes]]></title>
+      <link>https://example.com/news/gpu-driver</link>
+      <pubDate>Tue, 20 Oct 2026 08:30:00 GMT</pubDate>
+      <description><![CDATA[<p>The <b>latest</b> driver fixes &quot;stutter&quot; in three games.</p>]]></description>
+      <media:thumbnail url="https://example.com/img/driver.jpg" />
+    </item>
+    <item>
+      <title>Escaped &amp; entity &#39;title&#39; &lt;ok&gt;</title>
+      <link>https://example.com/news/entities</link>
+      <dc:date>2026-10-19T12:00:00Z</dc:date>
+      <content:encoded><![CDATA[<p>Body with an inline picture <img src="/pics/inline.png" alt=""> and text.</p>]]></content:encoded>
+    </item>
+    <item>
+      <title>Pixel trackers are not pictures</title>
+      <link>https://example.com/news/tracker</link>
+      <pubDate>Mon, 19 Oct 2026 10:00:00 GMT</pubDate>
+      <description>Only a tracking pixel here.</description>
+      <enclosure url="https://example.com/track/pixel.gif" type="image/gif" />
+    </item>
+    <item>
+      <title>An item without a link is dropped</title>
+      <description>No link element.</description>
+    </item>
+    <item>
+      <link>https://example.com/news/no-title</link>
+      <description>An item without a title is dropped.</description>
+    </item>
+  </channel>
+</rss>

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>Example Releases</title>
+  <link href="https://example.org/" rel="alternate"/>
+  <updated>2026-10-21T00:00:00Z</updated>
+  <entry>
+    <title>v2.4.0</title>
+    <link rel="alternate" type="text/html" href="https://example.org/releases/tag/v2.4.0"/>
+    <link rel="self" href="https://example.org/releases/v2.4.0.atom"/>
+    <published>2026-10-21T09:15:00Z</published>
+    <updated>2026-10-21T09:20:00Z</updated>
+    <summary type="html">&lt;p&gt;Adds streaming &amp;amp; retries.&lt;/p&gt;</summary>
+  </entry>
+  <entry>
+    <title type="html">Security advisory &amp; fix</title>
+    <link href="https://example.org/advisories/1"/>
+    <updated>2026-10-20T18:00:00Z</updated>
+    <content type="html">&lt;p&gt;Upgrade now.&lt;/p&gt;&lt;img src="https://example.org/a.jpg"&gt;</content>
+  </entry>
+  <entry>
+    <title>Anchor-only link is dropped</title>
+    <link href="#local"/>
+    <updated>2026-10-20T00:00:00Z</updated>
+  </entry>
+</feed>

@@ -1,0 +1,26 @@
+[
+  {
+    "ghsa_id": "GHSA-aaaa-bbbb-cccc",
+    "cve_id": "CVE-2026-0001",
+    "summary": "Prototype pollution in example-package",
+    "description": "## Impact\nA crafted payload can pollute `Object.prototype`.\n\n## Fix\nUpgrade to 2.0.1.",
+    "severity": "critical",
+    "html_url": "https://github.com/advisories/GHSA-aaaa-bbbb-cccc",
+    "published_at": "2026-10-20T10:00:00Z",
+    "vulnerabilities": [
+      { "package": { "ecosystem": "npm", "name": "example-package" } },
+      { "package": { "ecosystem": "npm", "name": "example-package" } },
+      { "package": { "ecosystem": "npm", "name": "example-cli" } }
+    ]
+  },
+  {
+    "ghsa_id": "GHSA-dddd-eeee-ffff",
+    "cve_id": null,
+    "summary": "Path traversal in another-package",
+    "description": "A file name is joined without a check.",
+    "severity": "critical",
+    "html_url": "https://github.com/advisories/GHSA-dddd-eeee-ffff",
+    "published_at": "2026-10-19T08:30:00Z",
+    "vulnerabilities": []
+  }
+]

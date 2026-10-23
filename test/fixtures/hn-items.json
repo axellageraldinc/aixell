@@ -1,0 +1,6 @@
+{
+  "101": { "id": 101, "type": "story", "title": "A tiny local model beats the big one", "url": "https://example.com/local-model", "time": 1793000000, "score": 412, "descendants": 88 },
+  "102": { "id": 102, "type": "job", "title": "We are hiring (dropped)", "url": "https://example.com/jobs", "time": 1793000100 },
+  "103": { "id": 103, "type": "story", "title": "Ask HN: what is your editor setup?", "time": 1793000200, "score": 55, "descendants": 130 },
+  "104": { "id": 104, "type": "story", "title": "A story with no url uses the HN page", "time": 1793000300, "score": 7, "descendants": 2 }
+}
