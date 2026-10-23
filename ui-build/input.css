@@ -1,0 +1,86 @@
+/* Source of public/ui.css (Tailwind 4 + daisyUI 5). Rebuild with `npm run build` in this folder.
+   Only the class names that appear in public/*.js, lib/*.js and the HTML files end up in the output. */
+@import "tailwindcss" source(none);
+@source "../public/index.html";
+@source "../public/login.html";
+@source "../public/*.js";
+@source "../public/lib/*.js";
+
+/* Only the components the app uses. daisyUI also ships `dock`, `hero`, `status`, `step`, `toast`... which share names
+   with the app's own classes and would restyle them, so everything else stays out. */
+@plugin "daisyui" {
+  themes: false;
+  logs: false;
+  include: join, alert, avatar, badge, button, input, kbd, loading, modal, progress, skeleton, tab, textarea, toggle, tooltip;
+}
+
+/* Clean neutrals, one cobalt accent, flat colour (no gradients). Colour names are daisyUI's; app.css maps its older variables onto these. */
+@plugin "daisyui/theme" {
+  name: "aixell";
+  default: true;
+  prefersdark: false;
+  color-scheme: light;
+  --color-base-100: oklch(99% 0.003 250);
+  --color-base-200: oklch(96.8% 0.005 250);
+  --color-base-300: oklch(92.5% 0.008 250);
+  --color-base-content: oklch(24% 0.02 260);
+  --color-primary: oklch(54% 0.2 262);
+  --color-primary-content: oklch(98% 0.01 262);
+  --color-secondary: oklch(86% 0.13 95);
+  --color-secondary-content: oklch(28% 0.06 90);
+  --color-accent: oklch(72% 0.14 160);
+  --color-accent-content: oklch(24% 0.06 160);
+  --color-neutral: oklch(27% 0.02 260);
+  --color-neutral-content: oklch(96% 0.005 250);
+  --color-info: oklch(72% 0.13 240);
+  --color-info-content: oklch(22% 0.05 240);
+  --color-success: oklch(70% 0.15 155);
+  --color-success-content: oklch(22% 0.06 155);
+  --color-warning: oklch(80% 0.15 80);
+  --color-warning-content: oklch(28% 0.07 80);
+  --color-error: oklch(63% 0.21 25);
+  --color-error-content: oklch(98% 0.01 25);
+  --radius-selector: 1rem;
+  --radius-field: 0.875rem;
+  --radius-box: 1.25rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 1;
+  --noise: 0;
+}
+
+@plugin "daisyui/theme" {
+  name: "aixell-dark";
+  default: false;
+  prefersdark: true;
+  color-scheme: dark;
+  --color-base-100: oklch(21% 0.015 260);
+  --color-base-200: oklch(18.5% 0.015 260);
+  --color-base-300: oklch(27% 0.02 260);
+  --color-base-content: oklch(93% 0.01 250);
+  --color-primary: oklch(70% 0.15 262);
+  --color-primary-content: oklch(20% 0.05 262);
+  --color-secondary: oklch(84% 0.12 95);
+  --color-secondary-content: oklch(26% 0.06 90);
+  --color-accent: oklch(76% 0.13 160);
+  --color-accent-content: oklch(22% 0.05 160);
+  --color-neutral: oklch(30% 0.02 260);
+  --color-neutral-content: oklch(93% 0.01 250);
+  --color-info: oklch(76% 0.12 240);
+  --color-info-content: oklch(22% 0.05 240);
+  --color-success: oklch(76% 0.15 155);
+  --color-success-content: oklch(22% 0.06 155);
+  --color-warning: oklch(82% 0.14 85);
+  --color-warning-content: oklch(28% 0.07 80);
+  --color-error: oklch(70% 0.19 22);
+  --color-error-content: oklch(20% 0.06 22);
+  --radius-selector: 1rem;
+  --radius-field: 0.875rem;
+  --radius-box: 1.25rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 1;
+  --noise: 0;
+}

@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en" data-color-mode="light" data-theme="aixell">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Sign in · aixell</title>
+  <script src="/theme.js"></script>
+  <link rel="icon" href="/favicon.svg?v=2" type="image/svg+xml">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <meta name="mobile-web-app-capable" content="yes">
+  <link rel="stylesheet" href="/vendor/fonts/fonts.css">
+  <link rel="stylesheet" href="/ui.css">
+  <link rel="stylesheet" href="/app.css">
+</head>
+<body>
+  <main class="login">
+    <form id="login-form" class="login-form" autocomplete="on">
+      <img class="logo" src="/favicon.svg" alt="" width="56" height="56">
+      <h1 class="wordmark">aixell</h1>
+      <p class="login-sub">Sign in to keep chatting.</p>
+      <div class="field">
+        <label for="login-username">Username</label>
+        <input id="login-username" class="input w-full" name="username" type="text" autocomplete="username" required>
+      </div>
+      <div class="field">
+        <label for="login-password">Password</label>
+        <input id="login-password" class="input w-full" name="password" type="password" autocomplete="current-password" required>
+      </div>
+      <div class="field">
+        <label for="login-code">Authenticator code or recovery code</label>
+        <input id="login-code" class="input w-full" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" required>
+      </div>
+      <button id="login-submit" class="btn btn-primary btn-block" type="submit">Sign in</button>
+      <p id="login-error" class="form-error" role="alert" hidden></p>
+    </form>
+  </main>
+  <script type="module" src="/login.js"></script>
+</body>
+</html>

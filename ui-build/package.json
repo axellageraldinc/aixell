@@ -1,0 +1,14 @@
+{
+  "name": "hermes-web-ui-build",
+  "private": true,
+  "description": "Builds public/vendor/daisyui/ui.css (Tailwind + daisyUI). Not needed at runtime.",
+  "scripts": {
+    "build": "tailwindcss -i input.css -o ../public/ui.css --minify"
+  },
+  "devDependencies": {
+    "@fontsource-variable/nunito": "^5.3.0",
+    "@tailwindcss/cli": "^4.3.3",
+    "daisyui": "^5.7.50",
+    "tailwindcss": "^4.3.3"
+  }
+}

@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en" data-color-mode="light" data-theme="aixell">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <title>aixell</title>
+  <script src="/theme.js"></script>
+  <link rel="icon" href="/favicon.svg?v=2" type="image/svg+xml">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <meta name="mobile-web-app-capable" content="yes">
+  <link rel="stylesheet" href="/vendor/fonts/fonts.css">
+  <link rel="stylesheet" href="/ui.css">
+  <link rel="stylesheet" href="/app.css">
+  <link rel="stylesheet" href="/feed.css">
+  <link rel="preload" as="fetch" href="/api/me" crossorigin>
+  <link rel="preload" as="fetch" href="/api/agents" crossorigin>
+</head>
+<body>
+  <div id="boot-splash" class="boot-splash" aria-hidden="true"><img src="/favicon.svg?v=2" alt="" width="76" height="76"><b>aixell</b></div>
+  <div class="app">
+    <aside id="sidebar" class="side" aria-label="Chat">
+      <div class="side-head">
+        <div id="agent-switcher" class="anchor">
+          <button id="agent-trigger" type="button" class="agent-trigger" data-testid="agent-switcher" aria-haspopup="listbox" aria-expanded="false" aria-controls="agent-panel">
+            <span id="agent-dot" class="dot"></span>
+            <span id="agent-name" class="agent-label">aixell</span>
+            <span data-ico="chevron-down"></span>
+          </button>
+          <div id="agent-panel" class="pop agent-panel" hidden>
+            <div id="agent-list" role="listbox" aria-label="Agents"></div>
+          </div>
+        </div>
+        <button id="sidebar-collapse" type="button" class="ibtn" aria-label="Collapse sidebar" title="Collapse sidebar" data-ico="panel-left"></button>
+      </div>
+      <div class="side-top">
+        <button id="session-new" type="button" class="new-chat" data-testid="session-new">
+          New chat
+        </button>
+        <button id="telegram-open" type="button" class="side-link" data-testid="telegram-open"><span data-ico="send"></span>Import from Telegram</button>
+        <label class="search has-clear">
+          <span data-ico="search"></span>
+          <input id="session-search" class="input" type="search" placeholder="Search chats…" aria-label="Search chats" data-testid="session-search">
+          <button id="search-clear" type="button" class="ibtn ibtn-sm search-clear" aria-label="Clear search" data-ico="x" hidden></button>
+        </label>
+      </div>
+      <nav id="session-list" class="session-list" aria-label="Chat history" data-testid="session-list"></nav>
+      <div class="side-foot">
+        <span id="username" class="username"></span>
+        <button id="user-menu" type="button" class="ibtn" data-testid="user-menu" aria-label="Account menu" aria-haspopup="menu" aria-expanded="false" data-ico="more-horizontal"></button>
+      </div>
+    </aside>
+
+    <main id="main" class="main">
+      <header class="topbar">
+        <button id="open-sidebar" type="button" class="ibtn open-sidebar" aria-label="Open chat list" aria-controls="sidebar" aria-expanded="false" data-ico="menu"></button>
+        <h1 id="chat-title" class="chat-title" data-testid="chat-title">New chat</h1>
+        <button id="cost-chip" type="button" class="cost-chip" data-testid="cost-chip" title="Estimated cost of this chat: tokens × model list price" hidden>
+          <span id="cost-text"></span>
+        </button>
+        <button id="context-meter" type="button" class="context-meter" data-testid="context-meter" data-level="ok" title="Context usage">
+          <span id="context-text" class="meter-text">—</span>
+          <span class="meter-track"><span id="context-fill" class="meter-fill"></span></span>
+        </button>
+        <button id="topbar-new" type="button" class="ibtn" data-testid="topbar-new" aria-label="New chat" title="New chat" data-ico="square-pen"></button>
+      </header>
+      <div id="offline-banner" class="banner" role="status" hidden>Agent is offline</div>
+      <div id="update-banner" class="banner quota-banner" role="status" data-testid="update-banner" hidden></div>
+      <div id="quota-banner" class="banner quota-banner" role="status" data-testid="quota-banner" hidden></div>
+
+      <div class="thread-wrap">
+        <div id="thread" class="thread">
+          <div id="message-list" class="message-list" data-testid="message-list" aria-live="polite"></div>
+        </div>
+        <button id="jump-to-latest" type="button" class="btn btn-circle jump" title="Jump to latest" aria-label="Jump to latest" data-testid="jump-to-latest" hidden>
+          <span data-ico="arrow-up" class="flip"></span><span class="sr-only">Jump to latest</span>
+        </button>
+      </div>
+
+      <div class="dock">
+        <ul id="queue" class="queue" aria-label="Queued messages" data-testid="queue" hidden></ul>
+        <form id="composer" class="composer">
+          <ul id="chips" class="chips" hidden></ul>
+          <label class="sr-only" for="composer-input">Message</label>
+          <textarea id="composer-input" rows="1" placeholder="Write a message…" data-testid="composer-input"></textarea>
+          <div class="composer-bar">
+            <button id="attach-button" type="button" class="ibtn attach" data-menu-align="left" data-testid="attach-button" aria-label="Attach files" title="Attach files" data-ico="plus"></button>
+            <input id="file-input" type="file" multiple hidden data-testid="file-input">
+            <div id="model-chip-root" class="anchor model-root">
+              <button id="model-chip" type="button" class="model-trigger" data-testid="model-chip" aria-haspopup="dialog" aria-expanded="false" aria-controls="model-popover" title="Model, effort and speed">
+                <span id="model-chip-text">Model</span>
+                <span data-ico="chevron-down"></span>
+              </button>
+              <div id="model-popover" class="pop model-pop" role="dialog" aria-label="Model settings" data-testid="model-popover" hidden></div>
+            </div>
+            <button id="preview-toggle" type="button" class="ibtn preview-toggle" data-testid="preview-toggle" aria-pressed="false" aria-label="Markdown preview" title="Markdown preview (Ctrl+Shift+P)" data-ico="eye"></button>
+            <span class="bar-spacer"></span>
+            <button id="mic-button" type="button" class="ibtn mic" data-testid="mic-button" aria-label="Record voice message" title="Record voice message"><span data-ico="mic"></span><span id="mic-time" class="mic-time" hidden></span></button>
+            <button id="composer-stop" type="button" class="stop" data-testid="stop-button" aria-label="Stop reply" title="Stop reply" hidden data-ico="square"></button>
+            <button id="composer-action" type="button" class="send" data-testid="send-button" aria-label="Send" title="Send" disabled data-ico="arrow-up"></button>
+          </div>
+        </form>
+        <div id="read-only-notice" class="readonly" data-testid="read-only-notice" hidden>
+          <p>Telegram history (read-only). Start a web chat to talk to this agent.</p>
+          <button id="readonly-new" type="button" class="btn btn-sm">New chat</button>
+        </div>
+      </div>
+      <div id="new-extras" class="new-extras" hidden></div>
+      <div class="drop-overlay" aria-hidden="true">Drop files here to attach</div>
+    </main>
+
+    <aside id="inspector" class="inspector" data-testid="inspector" aria-label="Usage" aria-hidden="true">
+      <header class="inspector-head">
+        <h2>Chat info</h2>
+        <button id="inspector-close" type="button" class="ibtn" aria-label="Close chat info" data-ico="x"></button>
+      </header>
+      <div class="inspector-panel">
+        <div id="usage-session" data-testid="usage-session"></div>
+      </div>
+    </aside>
+  </div>
+
+  <div id="scrim" class="scrim"></div>
+  <div id="toaster" class="toaster"></div>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
