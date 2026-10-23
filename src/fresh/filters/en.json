@@ -1,0 +1,19 @@
+{
+  "id": "en",
+  "lang": "en",
+  "rules": [
+    { "name": "affiliate", "action": "drop", "test": "\\b(affiliate|affiliates|referral link|referral code|#ad|sponsored post|commission link|buy through this link)\\b" },
+    { "name": "course", "action": "drop", "test": "\\b(paid course|online course|bootcamp|masterclass|for beginners|enrol(?:l)? now|sign up for the class)\\b" },
+    { "name": "giveaway", "action": "drop", "test": "\\b(giveaway|give away|free keys?|win a|win one)\\b" },
+    { "name": "deals", "action": "drop", "test": "\\b(sales?|discounts?|price cuts?|deals? of|free to keep|free weekend|promo codes?|giveaway|coupon|best deals?|deal alert|prime day|black friday|cyber monday|% off|bundle deal)\\b" },
+    { "name": "crypto", "action": "drop", "test": "\\b(crypto(?:currenc(?:y|ies))?|bitcoin|btc|ethereum|solana|nfts?|memecoins?|defi|web3|blockchain|on-?chain|stablecoins?|altcoins?|airdrops?|tokenomics|liquidity pools?|yield farming|dex|dapps?|(?:crypto|meme|governance|utility|erc-?20) tokens?|token (?:launch|sale|airdrop))\\b" },
+    { "name": "listicle", "action": "drop", "test": "^\\s*(?:the\\s+)?(?:\\d{1,2}|ten|best|top)\\s+(?:best|top|games?|ways?|things?|tips?|reasons?)\\b|\\bbest .* (?:of|to buy|deals?)\\b|\\bcodes?\\s*\\(\\w+ \\d{4}\\)" },
+    { "name": "console-business", "action": "category", "cats": ["console"], "test": "\\b(sales? (?:figures|numbers|top|chart)|units sold|million (?:units|copies)|layoffs?|laid off|lays off|studio clos\\w*|clos(?:es|ing) (?:down|its)|shut(?:s|ting)? down|acquisition|acquires?|acquired|buyout)\\b" },
+    { "name": "laptop", "action": "soft", "test": "\\b(laptops?|notebooks?|ultrabooks?|macbooks?|chromebooks?|mobile (?:cpu|gpu|processor|chip)s?|rtx \\d{4} laptop)\\b" },
+    { "name": "homelab", "action": "soft", "unless": "ai-tool", "test": "\\b(self[- ]hosted|self-hosting|homelab|home server|nas\\b|proxmox|truenas)\\b" },
+    { "name": "ai-tool", "action": "allow", "test": "\\b(ai|llms?|agents?|agentic|mcp|coding|copilot|claude|codex|opencode|litellm|ollama|openai|gpt|gemini|qwen|deepseek|llama|inference)\\b" },
+    { "name": "on-topic", "action": "allow", "test": "\\b(ai|llm|agent|model|coding|gpt|gemini|deepseek|qwen|llama|mcp|prompt|gpu|cpu|steam|game|security|cve|npm|pip|docker)\\b" },
+    { "name": "stack", "action": "allow", "test": "\\b(node(?:\\.js)?|npm|pnpm|yarn|pip|pypi|python|docker|containerd|cloudflare(?:d)?|tailscale|caddy|sqlite|openssh|ssh|mcp|claude code|codex|opencode|nvidia (?:driver|container)|linux kernel|steam|windows 11)\\b" },
+    { "name": "steam-event", "action": "allow", "test": "^(?:the\\s+)?steam\\s+(?:\\w+\\s+){0,3}(?:sale|next fest)\\b|\\bsteam (?:next fest|summer sale|autumn sale|winter sale|spring sale|lunar new year sale)\\b" }
+  ]
+}

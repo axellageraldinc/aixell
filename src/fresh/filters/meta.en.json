@@ -1,0 +1,12 @@
+{
+  "id": "en",
+  "lang": "en",
+  "patterns": [
+    "\\bthe (?:text|article|post|story|title) (?:only|merely|just)\\b",
+    "\\bthis (?:text|article|post|story) (?:only|merely|just) (?:says|contains|mentions|has)\\b",
+    "\\bthe (?:text|article|post|story) (?:does not|doesn't|has no|contains no) (?:say|contain|mention|detail|information)\\b",
+    "\\b(?:the )?title (?:alone|itself) (?:says|tells|suggests|indicates)\\b",
+    "\\bno (?:further|more) (?:details?|information) (?:is|are) (?:available|given|provided)\\b",
+    "\\bbased on the (?:text|title|headline)\\b"
+  ]
+}
