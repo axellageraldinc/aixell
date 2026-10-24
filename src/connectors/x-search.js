@@ -19,7 +19,9 @@ import { dayOf } from './budget.js';
 //
 // The ledger (`ctx.budget`) keeps the exact file and format the old code used (data/fresh-x.json).
 // Config:
-//   slots: [{ at: 'HH:MM', topic, lang?, days?, cats, handles?: string[]|'name', stockRule?, type? }]
+//   slots: [{ at: 'HH:MM', topic, lang?, days?, cats, handles?: string[]|'name', stockRule?, type?, minLikes? }]
+//   minLikes: a "viral" slot. Each answer line must carry the main post's like count as [likes: N]; a line below
+//             minLikes, or without a count, is dropped, and citations (which carry no count) are ignored.
 //   dailyCap: number (default 7)
 //   handles: { <name>: [handle, ...] }   named handle lists a slot may follow
 //   learned: { pass, fail, passRatio, failRatio, max, lang: {...} }   thresholds of handle learning
@@ -82,6 +84,7 @@ export function configOf(config = {}) {
       type: typeof slot?.type === 'string' && slot.type ? slot.type : cats[0],
       handles: slot?.handles ?? null,
       excludeLearned: slot?.excludeLearned === true,
+      minLikes: Number.isFinite(slot?.minLikes) && slot.minLikes > 0 ? Math.floor(slot.minLikes) : 0,
       stockRule: slot?.stockRule && typeof slot.stockRule === 'object' ? slot.stockRule : null,
     };
   });
@@ -169,10 +172,20 @@ export function handleLists(slot, now, cfg, ctx) {
 export function buildQuery(slot, others = []) {
   const covered = others.slice(0, 14).map((title) => String(title).replace(/\s+/g, ' ').slice(0, 60)).join('; ');
   const language = slot.lang ? ` Only posts in language ${slot.lang} (lang:${slot.lang}).` : '';
-  return `${slot.topic}. List 15 to 25 DISTINCT items, one per line, in this form: "- @handle: one-sentence summary. URL". Each item must be a different story or release with exactly ONE link (the article, repo or product page rather than the post itself when there is one). No duplicates, ${OTHER}.${language}${covered ? ` Other than: ${covered}.` : ''}`;
+  const viral = slot.minLikes ? ` Only stories that are viral right now: the main post must have at least ${slot.minLikes} likes. End each line with the approximate like count of that post as [likes: N] (for example [likes: 2400]).` : '';
+  return `${slot.topic}. List 15 to 25 DISTINCT items, one per line, in this form: "- @handle: one-sentence summary. URL". Each item must be a different story or release with exactly ONE link (the article, repo or product page rather than the post itself when there is one). No duplicates, ${OTHER}.${language}${viral}${covered ? ` Other than: ${covered}.` : ''}`;
 }
 
 const URL_RE = /https?:\/\/[^\s)\]>"']+/g;
+const LIKES_RE = /\[?\s*likes?\s*[:=]\s*~?\s*(\d[\d,]*(?:\.\d+)?)\s*([km])?\s*\]?/i;
+// "[likes: 2.4k]" -> 2400; null when the line carries no count.
+export function likesOf(text) {
+  const match = String(text ?? '').match(LIKES_RE);
+  if (!match) return null;
+  const n = Number.parseFloat(match[1].replace(/,/g, ''));
+  if (!Number.isFinite(n)) return null;
+  return Math.round(n * ({ k: 1e3, m: 1e6 }[(match[2] ?? '').toLowerCase()] ?? 1));
+}
 
 // Language-neutral junk: affiliate / referral parameters and short links that hide one.
 const AFFILIATE_URL = /[?&](?:fpr|ref|ref_id|refcode|referral|aff\w*|via|sub_id|coupon)=|[?&]utm_campaign=[^&]*affil|\/aff(?:iliate)?\//i;
@@ -239,7 +252,9 @@ export function parseAnswerStats(data, slot = {}) {
   const reject = (item) => (slot.lang ? langRejected(item, slot.lang) : false);
   const push = (candidate) => { const key = canon(candidate.url); if (!seen.has(key)) { seen.add(key); out.push(candidate); } };
   const statusId = (url) => url.match(/\/status(?:es)?\/(\d+)/)?.[1];
-  for (const lines of itemBlocks(data?.answer)) {
+  for (const rawLines of itemBlocks(data?.answer)) {
+    const likes = likesOf(rawLines.join(' '));
+    const lines = rawLines.map((line) => line.replace(new RegExp(LIKES_RE.source, 'gi'), '').trimEnd());
     const full = lines.join(' ');
     const urls = (full.match(URL_RE) ?? []).map((url) => url.replace(/[.,;:]+$/, ''));
     if (!urls.length) continue;
@@ -264,13 +279,14 @@ export function parseAnswerStats(data, slot = {}) {
     snippet = snippet.replace(/^@\w+:?\s*/, '');
     if (stripMd(full).length < 15 || title.length < 8) continue;
     if (post) posts.add(statusId(post));
-    const item = { source: 'x', name: handle ? `X · @${handle}` : 'X', cat: (slot.cats ?? [CAT_IDS[0]])[0], title: clip(title, 160), url: link, snippet: snippet.slice(0, 400), ts: Date.now(), meta: { via: 'x', handle, slot: slot.n, post, ...(slot.lang ? { lang: slot.lang } : {}) } };
+    const item = { source: 'x', name: handle ? `X · @${handle}` : 'X', cat: (slot.cats ?? [CAT_IDS[0]])[0], title: clip(title, 160), url: link, snippet: snippet.slice(0, 400), ts: Date.now(), meta: { via: 'x', handle, slot: slot.n, post, ...(likes != null ? { likes } : {}), ...(slot.lang ? { lang: slot.lang } : {}) } };
     parsed += 1;
     fromAnswer += 1;
+    if (slot.minLikes && !(likes >= slot.minLikes)) continue;
     if (reject({ ...item, snippet: full })) continue;
     push(item);
   }
-  for (const citation of data?.citations ?? []) {
+  for (const citation of slot.minLikes ? [] : data?.citations ?? []) {
     if (!citation?.url || !/^https?:/.test(citation.url)) continue;
     const title = String(citation.title ?? '').trim();
     if (!title || title === citation.url || /^https?:\/\/\S+$/.test(title)) continue;
@@ -519,7 +535,7 @@ export default {
   configSchema: {
     type: 'object',
     properties: {
-      slots: { type: 'array', items: { type: 'object', properties: { at: { type: 'string' }, topic: { type: 'string' }, lang: { type: 'string' }, days: { type: 'number' }, cats: { type: 'array' }, handles: {}, stockRule: { type: 'object' } } } },
+      slots: { type: 'array', items: { type: 'object', properties: { at: { type: 'string' }, topic: { type: 'string' }, lang: { type: 'string' }, days: { type: 'number' }, cats: { type: 'array' }, handles: {}, stockRule: { type: 'object' }, minLikes: { type: 'number' } } } },
       dailyCap: { type: 'number' },
       handles: { type: 'object' },
       learned: { type: 'object' },

@@ -77,3 +77,24 @@ test('empty and malformed answers produce no items', () => {
   assert.deepEqual(parseAnswer({ answer: 'Nothing notable happened.' }, slot), []);
   assert.deepEqual(parseAnswer({ answer: null, citations: [null, { url: 'ftp://x' }, {}] }, slot), []);
 });
+
+test('a viral slot keeps only lines whose like count reaches minLikes, and ignores citations', async () => {
+  const { likesOf, buildQuery } = await import('../../src/connectors/x-search.js');
+  assert.equal(likesOf('[likes: 2.4k]'), 2400);
+  assert.equal(likesOf('likes: 1,250'), 1250);
+  assert.equal(likesOf('[Likes=1.5M]'), 1500000);
+  assert.equal(likesOf('no count here'), null);
+  const viral = { n: 8, cats: ['tech'], minLikes: 1000 };
+  const answer = [
+    '- @a: A solo developer shipped a tool that took off. https://example.com/one [likes: 4.2k]',
+    '- @b: A small announcement from a niche project. https://example.com/two [likes: 120]',
+    '- @c: A launch with no count given at all. https://example.com/three',
+  ].join('\n');
+  const items = parseAnswer({ answer, citations: CITATIONS }, viral);
+  assert.equal(items.length, 1);
+  assert.equal(items[0].url, 'https://example.com/one');
+  assert.equal(items[0].meta.likes, 4200);
+  assert.ok(!/likes/i.test(items[0].title) && !/likes/i.test(items[0].snippet), 'the count tag is not part of the card text');
+  assert.ok(buildQuery(viral).includes('at least 1000 likes'));
+  assert.ok(!buildQuery({ n: 1, cats: ['ai'] }).includes('[likes:'), 'ordinary slots are unchanged');
+});
