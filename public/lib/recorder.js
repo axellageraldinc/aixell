@@ -21,7 +21,7 @@ const IDLE_BEFORE_SPEECH_MS = 8000;
 
 const Speech = window.SpeechRecognition || window.webkitSpeechRecognition;
 const touchPrimary = window.matchMedia('(pointer: coarse)');
-const LANGS = { en: 'en-US', es: 'es-ES', fr: 'fr-FR', de: 'de-DE', pt: 'pt-PT', ja: 'ja-JP', zh: 'zh-CN' };
+const LANGS = { en: 'en-US', id: 'id-ID', es: 'es-ES', fr: 'fr-FR', de: 'de-DE', pt: 'pt-PT', ja: 'ja-JP', zh: 'zh-CN' };
 
 // Which mic mode this browser uses (Settings → Mic): 'auto' = dictation on touch screens, recording elsewhere.
 const MODE_KEY = 'hermes-web:mic-mode';

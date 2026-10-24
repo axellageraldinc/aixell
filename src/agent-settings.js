@@ -17,8 +17,10 @@ function persist() {
   fs.renameSync(temporary, file);
 }
 
-// 'auto' lets the speech model detect the language; the others steer it with a hint.
-export const STT_LANGUAGE_NAMES = { en: 'English', es: 'Spanish', fr: 'French', de: 'German', pt: 'Portuguese', ja: 'Japanese', zh: 'Chinese' };
+// 'auto' lets the speech model detect the language; the others steer it with a hint. The names come from the platform's
+// language data, so only the ISO codes are listed here.
+const languageNames = new Intl.DisplayNames(['en'], { type: 'language' });
+export const STT_LANGUAGE_NAMES = Object.fromEntries(['en', 'id', 'es', 'fr', 'de', 'pt', 'ja', 'zh'].map((code) => [code, languageNames.of(code)]));
 export const STT_LANGUAGES = ['auto', ...Object.keys(STT_LANGUAGE_NAMES)];
 export const getSttLanguage = (agentName) => store[agentName]?.sttLanguage ?? 'auto';
 

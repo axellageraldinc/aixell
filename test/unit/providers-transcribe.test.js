@@ -31,6 +31,19 @@ test('runTranscription sends the configured model and the language hint through 
   } finally { await gw.close(); }
 });
 
+test('runTranscription hints the chosen language for a code beyond English', async () => {
+  compat.setProviderConfig(null);
+  const gw = await startGateway(compat);
+  try {
+    const agent = agentOf(`GATEWAY_API_KEY=${GW_KEY}\n`, { baseUrl: gw.url });
+    setSttLanguage(agent.name, 'id');
+    await runTranscription(agent, compat.providersFor(agent).get('transcription'), Buffer.from('mp3 bytes'));
+    const raw = gw.requests.find((r) => r.path === '/audio/transcriptions').raw.toString('latin1');
+    const name = new Intl.DisplayNames(['en'], { type: 'language' }).of('id');
+    assert.ok(raw.includes(`name="prompt"\r\n\r\nThe speech is in ${name}.`));
+  } finally { await gw.close(); }
+});
+
 test('runTranscription maps provider failures to the HTTP errors the client already knows', async () => {
   compat.setProviderConfig(null);
   const gw = await startGateway(compat);

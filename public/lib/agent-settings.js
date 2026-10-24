@@ -101,8 +101,10 @@ export async function openSettings({ signOutAll } = {}) {
   focusToggle.checked = isFocus();
   focusToggle.addEventListener('change', () => setFocus(focusToggle.checked));
   const themeSeg = segmented('theme', [['light', t('settings.display.theme.light')], ['dark', t('settings.display.theme.dark')], ['auto', t('settings.display.theme.system')]], currentTheme(), setTheme);
+  // A language's own name in the page language, from the browser's language data (no names to translate or keep here).
+  const languageLabel = (code) => { try { return new Intl.DisplayNames([document.documentElement.lang || 'en'], { type: 'language' }).of(code); } catch { return code; } };
   const voiceStatus = h('span', { className: 'dlg-status', role: 'status' });
-  const voiceSeg = segmented('voice', [['en', 'English'], ['auto', t('common.auto')]], data.sttLanguage ?? 'auto', async (value) => {
+  const voiceSeg = segmented('voice', [...['en', 'id'].map((code) => [code, languageLabel(code)]), ['auto', t('common.auto')]], data.sttLanguage ?? 'auto', async (value) => {
     try {
       await api(`${agentPath(agent)}/settings`, { method: 'PUT', body: { sttLanguage: value } });
       voiceStatus.textContent = t('common.saved');
