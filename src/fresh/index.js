@@ -307,17 +307,19 @@ async function triageNew() {
     const meta = JSON.parse(row.meta ?? '{}');
     // Steam's own cards (patch notes, releases, sale summaries) are already known to be wanted.
     if (meta.via === 'steam') { store.setTriage(row.id, { cat: CAT_IDS[0], rel: 0.85, ban: 0, status: 'new' }); continue; }
-    toJudge.push({ id: row.id, title: row.title, snippet: meta.snippet ?? '', cat: row.cat, source: row.source, handle: meta.handle, flag: row.flag, release: meta.release, lang: meta.lang });
+    toJudge.push({ id: row.id, title: row.title, snippet: meta.snippet ?? '', cat: row.cat, source: row.source, handle: meta.handle, flag: row.flag, release: meta.release, substantial: meta.substantial, gh: Boolean(meta.gh), lang: meta.lang });
   }
   const verdicts = await triage(agent, toJudge);
   let kept = 0;
   for (const it of toJudge) {
     const v = verdicts.get(it.id);
     const stack = it.flag === 'stack';
-    const wanted = stack || it.release || (v.cat && v.ban < 0.6 && v.news >= 0.35 && v.rel >= 0.25 && v.info >= 0.3);
-    // The model's category always wins, GitHub cards included. When it names none, the card keeps the category it came in
-    // with (setTriage coalesces) and only trusted stack or release cards survive; nothing is ever forced into a default.
-    store.setTriage(it.id, { cat: v.cat, rel: stack ? Math.max(v.rel, 0.7) : v.rel, ban: v.ban, status: wanted ? 'new' : 'skip' });
+    // A routine point release is a changelog, not news: only a substantial one passes, the rest is set aside.
+    const routineRelease = it.release && !it.substantial && !stack;
+    const wanted = !routineRelease && (stack || it.release || ((v.cat || it.gh) && v.ban < 0.6 && v.news >= 0.35 && v.rel >= 0.25 && v.info >= 0.3));
+    // The model's category wins for every card except GitHub's, which keeps the one its connector declares (see categoryOf).
+    // When the model names none, setTriage coalesces to the category the card came in with.
+    store.setTriage(it.id, { cat: it.gh ? null : v.cat, rel: stack ? Math.max(v.rel, 0.7) : v.rel, ban: v.ban, status: wanted ? 'new' : 'skip' });
     if (wanted) { store.setScore(it.id, (store.getItem(it.id)?.score ?? 0) + v.rel * 3); kept += 1; }
     if (it.handle) noteHandle(it.handle, wanted, 1, it.lang, xLearnContext());
   }

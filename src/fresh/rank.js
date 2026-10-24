@@ -49,6 +49,8 @@ export const STACK_ALERT = /\b(cve-\d{4}-\d+|vulnerab\w*|exploit\w*|malicious|co
 export const stackFlag = (item) => (STACK.test(`${item.title} ${item.snippet ?? ''}`) && STACK_ALERT.test(`${item.title} ${item.snippet ?? ''}`)) || Boolean(item.stack);
 
 export function categoryOf(item) {
+  // A GitHub card keeps the category its connector declares: keyword guesses read repo blurbs wrongly.
+  if (item.meta?.gh && CATEGORIES[item.cat]) return item.cat;
   const guess = guessCat(`${item.title} ${item.snippet ?? ''}`, item.cat);
   if (SECURITY_CAT && stackFlag(item) && item.cat === SECURITY_CAT) return SECURITY_CAT;
   return CATEGORIES[guess] ? guess : CATEGORIES[item.cat] ? item.cat : PRIMARY_CAT;
