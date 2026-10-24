@@ -66,8 +66,14 @@ async function liveModelIds(agent) {
 }
 
 // A configured catalog provider: its own list of models, with its own prices and modalities.
-async function getCatalogModels(agent, catalog) {
+// A `routed` catalog (a gateway that resolves the real model per request, e.g. xellter) has nothing to choose from:
+// its /models answer is the set of presets it serves, not chat models, so the picker shows the route instead of a list.
+async function getCatalogModels(agent, catalog, routed = false) {
   const isHidden = hiddenCheck(agent.provider);
+  const base = { current: { provider: agent.provider, model: agent.model }, effortLevels: EFFORT_LEVELS, serviceTiers: ['default'] };
+  if (routed) {
+    return { ...base, routed: true, models: [{ id: agent.model, provider: agent.provider, reasoning: false, contextWindow: null, modalities: null, hidden: false, price: null, quota: null, note: null }] };
+  }
   const models = (await catalog.listModels({ currentModel: agent.model })).map((m) => ({
     id: m.id, provider: agent.provider,
     reasoning: m.reasoning,
@@ -78,12 +84,13 @@ async function getCatalogModels(agent, catalog) {
     quota: m.quota,
     note: m.note,
   }));
-  return { current: { provider: agent.provider, model: agent.model }, effortLevels: EFFORT_LEVELS, serviceTiers: ['default'], models };
+  return { ...base, models };
 }
 
 export async function getModels(agent) {
-  const catalog = providersFor(agent).get('models');
-  if (catalog) return getCatalogModels(agent, catalog);
+  const registry = providersFor(agent);
+  const catalog = registry.get('models');
+  if (catalog) return getCatalogModels(agent, catalog, registry.config('models')?.routed === true);
   const provider = agent.provider;
   const devModels = readJsonCached(path.join(config.hermesRoot, 'models_dev_cache.json'))?.[provider]?.models || {};
   const isGo = provider === 'opencode-go';

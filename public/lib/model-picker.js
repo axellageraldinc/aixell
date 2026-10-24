@@ -114,6 +114,24 @@ export function mountPicker(container) {
     if (status === 'error') return container.replaceChildren(statusBlock({ kind: 'error', text: errorMessage, onRetry: loadModels }));
 
     const { models = [], effortLevels = [], serviceTiers = [] } = state.models;
+    // A routed agent (one whose provider resolves the real model per request, e.g. xellter) has no model to pick:
+    // the list is the provider's own catalogue, not something the app may choose from. Show the routing note only.
+    const routed = state.models?.routed === true;
+    if (routed) {
+      effort = null; tier = null;
+      visualize = switchControl({
+        label: t('model.visuals.title'),
+        hint: t('model.visuals.hint'),
+        onChange: (on) => setVisualize(on),
+      });
+      reset = h('button', { type: 'button', className: 'btn btn-sm btn-ghost', onClick: resetSettings }, t('model.reset'));
+      container.replaceChildren(
+        h('p', { className: 'model-note', 'data-testid': 'model-routed' }, t('model.routed.note')),
+        h('div', { className: 'picker-opts' }, visualize.el, reset),
+      );
+      sync();
+      return;
+    }
     const search = h('input', {
       type: 'search',
       className: 'input input-sm w-full',
@@ -186,14 +204,14 @@ export function mountPicker(container) {
   }
 
   function sync() {
-    if (!state.models || !effort) return;
+    if (!state.models) return;
     const s = currentSettings();
     const selected = effectiveModelId();
     for (const row of rows) row.firstElementChild.setAttribute('aria-selected', String(row.dataset.model === selected));
-    effort.set(s.reasoningEffort ?? state.models.defaultEffort ?? '', !findModel(selected)?.reasoning);
-    tier.set(s.serviceTier ?? state.models.serviceTiers?.[0] ?? 'default');
-    visualize.set(visualizeOn());
-    reset.disabled = Object.keys(s).length === 0;
+    effort?.set(s.reasoningEffort ?? state.models.defaultEffort ?? '', !findModel(selected)?.reasoning);
+    tier?.set(s.serviceTier ?? state.models.serviceTiers?.[0] ?? 'default');
+    visualize?.set(visualizeOn());
+    if (reset) reset.disabled = Object.keys(s).length === 0;
   }
 
   build();

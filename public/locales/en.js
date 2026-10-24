@@ -432,6 +432,7 @@ export default {
   'model.reasoning.hint': 'Supports reasoning effort',
   'model.reasoning.label': 'Reasoning',
   'model.reset': 'Reset to agent default',
+  'model.routed.note': 'This agent is routed by the gateway: it picks the real model for every request, so there is nothing to choose here.',
   'model.search.label': 'Search models',
   'model.search.placeholder': 'Search models',
   'model.speed.hint': 'Priority: served first (faster, usually more expensive).',
