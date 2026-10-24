@@ -4,7 +4,7 @@ import crypto from 'node:crypto';
 import { config } from '../config.js';
 import { settings as deployment } from '../config/instance.js';
 import { resolveSecret } from '../config/secrets.js';
-import { CAT_IDS, PRIMARY_CAT } from './profile.js';
+import { CAT_IDS, PRIMARY_CAT, SECURITY_CAT } from './profile.js';
 import { CATEGORIES, KINDS, discoverFeed, fetchSource } from './feeds.js';
 import { createRegistry } from '../connectors/registry.js';
 import { DEFAULT_CONNECTOR_PRESETS, fromLegacySource, legacyKindOf } from '../connectors/presets.js';
@@ -35,6 +35,8 @@ import { createScheduler } from '../scheduler/scheduler.js';
 // pool on request (timeline.js). Stories are kept for 14 days.
 const MAX_AGE_H = 72;
 const MIN_SCORE = 1.0;
+// Security is a minor interest of this reader: a security story needs a strong model match (0..1) to be shown.
+const SECURITY_MIN_REL = 0.6;
 const PER_RUN = 24;
 const PER_SOURCE = 4; // per round
 const PRIORITY = new Set(['x', 'w-x']); // paid and freshest: never wait behind the free feeds, and not held to PER_SOURCE
@@ -316,10 +318,13 @@ async function triageNew() {
     const stack = it.flag === 'stack';
     // A routine point release is a changelog, not news: only a substantial one passes, the rest is set aside.
     const routineRelease = it.release && !it.substantial && !stack;
-    const wanted = !routineRelease && (stack || it.release || ((v.cat || it.gh) && v.ban < 0.6 && v.news >= 0.35 && v.rel >= 0.25 && v.info >= 0.3));
+    // Security stories (a stack alert or a model verdict) must be a strong match: most of them are routine noise.
+    const security = stack || (SECURITY_CAT && v.cat === SECURITY_CAT);
+    const minRel = security ? SECURITY_MIN_REL : 0.25;
+    const wanted = !routineRelease && (it.release || ((v.cat || it.gh) && v.ban < 0.6 && v.news >= 0.35 && v.rel >= minRel && v.info >= 0.3));
     // The model's category wins for every card except GitHub's, which keeps the one its connector declares (see categoryOf).
     // When the model names none, setTriage coalesces to the category the card came in with.
-    store.setTriage(it.id, { cat: it.gh ? null : v.cat, rel: stack ? Math.max(v.rel, 0.7) : v.rel, ban: v.ban, status: wanted ? 'new' : 'skip' });
+    store.setTriage(it.id, { cat: it.gh ? null : v.cat, rel: v.rel, ban: v.ban, status: wanted ? 'new' : 'skip' });
     if (wanted) { store.setScore(it.id, (store.getItem(it.id)?.score ?? 0) + v.rel * 3); kept += 1; }
     if (it.handle) noteHandle(it.handle, wanted, 1, it.lang, xLearnContext());
   }
