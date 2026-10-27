@@ -11,6 +11,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import '../helpers/env.js';
+import { dayKey } from '../../src/time.js';
 import { startFakeGateway, startGateway, GW_KEY } from '../helpers/fake-gateway.js';
 
 // These tests talk to the local fake gateway instead of the offline mock that helpers/env.js switches on.
@@ -32,7 +33,9 @@ const agentOf = (baseUrl) => {
   return { name: `llm-${Math.random().toString(36).slice(2, 8)}`, home, provider: 'gateway', model: 'chat-a', baseUrl };
 };
 
-const dayKey = () => new Date(Date.now() + 7 * 3_600_000).toISOString().slice(0, 10);
+// The app's own day key. The test must use the same function the code under test uses: the zone is the
+// deployment's (config.json), not a fixed one, so a hard-coded UTC+7 key made the counters look stale
+// whenever the configured zone was not UTC+7 — and a stale day key is what resets the daily caps.
 const usage = (patch = {}) => ({
   day: dayKey(), s1: {}, s1Fail: 0, free: 0, paid: 0, rejected: 0, writeErrors: 0, written: 0,
   paidDueToLimit: 0, paidDueToQuality: 0, paidDueToError: 0, deferredByLimit: 0, ...patch,
