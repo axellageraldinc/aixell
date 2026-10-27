@@ -4,7 +4,7 @@
 import { api, fetchRaw, toApiError, agentPath } from './api.js';
 import { readSse } from './sse.js';
 import { state, emit, on, sessionKey, saveLastSession, liveRun } from './state.js';
-import { chatOptions, adoptNewSessionSettings, markContextStale, hadLiveSeed, clearLiveSeed } from './models.js';
+import { chatOptions, adoptNewSessionSettings, markContextStale, hadLiveSeed, clearLiveSeed, loadServedModel } from './models.js';
 import { createAssistantMessage } from './stream-message.js';
 import { userNode } from './message-nodes.js';
 import { appendUserMessage, addLive, removeLive, dropLive, rekeyLive, loadSession, settleRun } from './messages.js';
@@ -234,6 +234,8 @@ function handleEvent(event, data, ctx) {
       splitForSteer(ctx, ts);
       ensureMessage(ctx);
       ctx.message.appendDelta(data.delta ?? '', ts);
+      // The first answer means the gateway has served this conversation: ask which real model it pinned.
+      if (!ctx.servedAsked) { ctx.servedAsked = true; loadServedModel(ctx.run.sessionId ?? state.sessionId); }
       break;
     case 'assistant.commentary':
       // already_streamed: the same words arrived as assistant.delta events and are on screen; drawing them again doubles them.
@@ -246,6 +248,7 @@ function handleEvent(event, data, ctx) {
       ensureMessage(ctx);
       if (typeof data.content === 'string') ctx.message.setText(data.content);
       ctx.message.setModel(data.runtime?.model ?? null);
+      loadServedModel(ctx.run.sessionId ?? state.sessionId);
       if (data.interrupted) { ctx.stopped = true; ctx.message.setNote(t('chat.stopped')); }
       break;
     case 'tool.started':

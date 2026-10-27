@@ -3,7 +3,7 @@ import { $ } from './dom.js';
 import { state, on } from './state.js';
 import { bindPopover } from './popover.js';
 import { skeletonRows } from './ui.js';
-import { currentSettings, effectiveModelId, loadModels } from './models.js';
+import { currentSettings, effectiveModelId, loadModels, servedModelId } from './models.js';
 
 const PANEL_WIDTH = 380;
 const textEl = $('#model-chip-text');
@@ -18,7 +18,10 @@ const remembered = () => { try { return localStorage.getItem(LABEL_KEY); } catch
 function refresh() {
   const model = effectiveModelId();
   const { reasoningEffort: effort, serviceTier } = currentSettings();
-  const label = model ? [model, effort ? effort : null, serviceTier === 'priority' ? 'priority' : null].filter(Boolean).join(' · ') : null;
+  // A routed gateway pins one real model per conversation: name it beside the route ("xellter - agnes-3-0-flash:free").
+  const served = servedModelId();
+  const shown = model && served && served !== model ? `${model} - ${served}` : model;
+  const label = shown ? [shown, effort ? effort : null, serviceTier === 'priority' ? 'priority' : null].filter(Boolean).join(' · ') : null;
   if (label && !state.sessionId) { try { localStorage.setItem(LABEL_KEY, label); } catch { /* shown again next time */ } }
   textEl.textContent = label ?? (state.sessionId ? null : remembered()) ?? 'Model';
 }
@@ -58,7 +61,7 @@ export function initModelChip() {
       picker = null;
     },
   });
-  for (const type of ['models:changed', 'settings:changed', 'session:changed', 'agent:select']) on(type, refresh);
+  for (const type of ['models:changed', 'models:served', 'settings:changed', 'session:changed', 'agent:select']) on(type, refresh);
   refresh();
 }
 

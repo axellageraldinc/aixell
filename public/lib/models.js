@@ -25,6 +25,8 @@ export async function loadModels({ silent = false } = {}) {
     if (agent !== state.agent) return;
     state.models = data;
     status = 'ready';
+    // A routed gateway knows the real model of the open chat; ask once the catalogue says it is routed.
+    if (data.routed === true) loadServedModel();
   } catch (err) {
     if (agent !== state.agent || (silent && state.models)) return;
     status = 'error';
@@ -119,6 +121,36 @@ const liveSeeded = new Set();
 export const noteLiveSeed = (key) => liveSeeded.add(key);
 export const hadLiveSeed = (key) => liveSeeded.has(key);
 export const clearLiveSeed = (key) => liveSeeded.delete(key);
+
+// The real model behind a routed gateway, per chat: the gateway pins one model per conversation, so the composer can
+// name it beside the route ("xellter - agnes-3-0-flash:free"). Only a routed catalogue has one; otherwise null.
+const served = new Map(); // key -> model id (string) | null
+const servedAt = new Map(); // key -> ms of the last read attempt (throttle)
+const servedToken = new Map(); // key -> newest read, so an older answer cannot overwrite it
+const SERVED_MIN_GAP_MS = 4_000;
+
+export const servedModelId = () => (state.models?.routed === true ? served.get(sessionKey(state.agent, state.sessionId)) ?? null : null);
+
+// Best effort: a gateway that cannot say (no traffic yet, no such endpoint) leaves the plain route name. `sessionId`
+// is explicit because a run reports it for the chat it belongs to, which need not be the chat on screen.
+export async function loadServedModel(sessionId = state.sessionId) {
+  const agent = state.agent;
+  if (!agent || !sessionId || state.models?.routed !== true) return;
+  const key = sessionKey(agent, sessionId);
+  const now = Date.now();
+  if (now - (servedAt.get(key) ?? 0) < SERVED_MIN_GAP_MS) return;
+  servedAt.set(key, now);
+  const token = (servedToken.get(key) ?? 0) + 1;
+  servedToken.set(key, token);
+  try {
+    const data = await api(`${agentPath(agent)}/models/served?session=${encodeURIComponent(sessionId)}`);
+    if (servedToken.get(key) !== token) return; // a newer read already answered
+    const model = typeof data?.model === 'string' && data.model ? data.model : null;
+    if (served.has(key) && served.get(key) === model) return; // nothing changed on screen
+    served.set(key, model);
+    emit('models:served');
+  } catch { /* keep the route name; the next turn asks again */ }
+}
 
 // Prompt size of the chat's latest call, kept by the server so it survives a reload. Never overrides a fresher value.
 export function seedContext(agent, session) {

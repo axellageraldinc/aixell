@@ -12,7 +12,7 @@ import { hydrateOpenUI } from './markdown.js';
 import { afterPaint } from './paint.js';
 import { groupTurns, turnNodes } from './turns.js';
 import { scrollToEnd, threadScroller } from './scroll.js';
-import { resetNewChatSettings, effectiveModelId, seedSettings, seedContext, findModel, noteLiveSeed } from './models.js';
+import { resetNewChatSettings, effectiveModelId, seedSettings, seedContext, findModel, noteLiveSeed, loadServedModel } from './models.js';
 import { sessionTitle } from './session-row.js';
 import { currentAgent } from './agents.js';
 import { agentLabel, fmtCompact, fmtDateTime } from './format.js';
@@ -340,6 +340,8 @@ export async function loadSession(id) {
     state.session = session;
     seedSettings(state.agent, session);
     seedContext(state.agent, session);
+    // A routed gateway pins one model per conversation: reopening a chat asks which one (a reload keeps the name).
+    loadServedModel(id);
     store = page.data;
     hasOlder = hasMore(page);
     // A chat that ended in a long run of tool calls has no words in its newest messages: read further back (up to

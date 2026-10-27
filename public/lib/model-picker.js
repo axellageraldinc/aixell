@@ -9,7 +9,7 @@ import { segmented } from './segmented.js';
 import { bindListNav } from './popover.js';
 import { api, agentPath } from './api.js';
 import { notify } from './ui.js';
-import { loadModels, modelsStatus, findModel, currentSettings, effectiveModelId, updateSettings, resetSettings, visualizeOn, setVisualize } from './models.js';
+import { loadModels, modelsStatus, findModel, currentSettings, effectiveModelId, updateSettings, resetSettings, visualizeOn, setVisualize, servedModelId } from './models.js';
 import { t } from './i18n.js';
 
 const usd = (n) => '$' + Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 3 });
@@ -99,7 +99,7 @@ function optionRow(m, onToggleHidden) {
 }
 
 export function mountPicker(container) {
-  const unsubscribe = [on('models:changed', build), on('settings:changed', sync), on('session:changed', sync)];
+  const unsubscribe = [on('models:changed', build), on('models:served', build), on('settings:changed', sync), on('session:changed', sync)];
   let rows = [];
   let showHidden = false;
   let effort = null;
@@ -125,10 +125,13 @@ export function mountPicker(container) {
         onChange: (on) => setVisualize(on),
       });
       reset = h('button', { type: 'button', className: 'btn btn-sm btn-ghost', onClick: resetSettings }, t('model.reset'));
-      container.replaceChildren(
+      // The gateway's own answer about this conversation; absent until its first request, and never guessed.
+      const served = servedModelId();
+      container.replaceChildren(...[
         h('p', { className: 'model-note', 'data-testid': 'model-routed' }, t('model.routed.note')),
+        served ? h('p', { className: 'model-note', 'data-testid': 'model-served' }, t('model.routed.served', { model: served })) : null,
         h('div', { className: 'picker-opts' }, visualize.el, reset),
-      );
+      ].filter(Boolean));
       sync();
       return;
     }

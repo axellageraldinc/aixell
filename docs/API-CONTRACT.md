@@ -67,6 +67,7 @@ Errors are always `{"error":{"message":string,"code":string}}` with the matching
 | `GET /api/me` | – | `200 {username,csrf,expiresAt}` · `401` |
 | `GET /api/agents` | – | `{agents:[{name,label,online,isDefault,provider,model}]}` |
 | `GET /api/agents/:a/models` | – | see below |
+| `GET /api/agents/:a/models/served` | `session` (chat id) | `{routed, model, models}`: the real model a routed gateway pinned for that chat |
 | `GET /api/agents/:a/sessions` | `source=web\|telegram\|all` (default web), `limit` (≤100), `offset` | `{data:[Session],has_more}` |
 | `POST /api/agents/:a/sessions` | `{title?}` | `{session:Session}` |
 | `GET /api/agents/:a/sessions/:id` | – | `{session:Session}` |
@@ -107,6 +108,18 @@ A `role:"tool"` message is shown as a collapsed tool card (name plus truncated o
             note:string|null }] }
 ```
 A `null` value means unknown: show "-". Never guess numbers.
+
+A **routed** catalogue (`capabilities.models.routed`, a gateway that picks the real model per request) answers
+`{ current, effortLevels:["none"], serviceTiers:["default"], routed:true, models:[{id: current.model, ...}] }`: there is
+nothing to choose, so the picker shows the route instead of a list.
+
+### `GET /api/agents/:a/models/served?session=<id>`
+Only a routed gateway that declares `servedModelPath` can answer it: the server asks the gateway which real model that
+conversation is on (the gateway's own session endpoint) and returns
+`{routed:true, model:"agnes-3-0-flash:free", models:["agnes-3-0-flash:free"]}`, or `{routed:true, model:null, models:[]}`
+before the conversation's first request (and when the gateway cannot say). A catalogue that is not routed returns
+`{routed:false, model:null, models:[]}` without calling anyone. `model` is the live pin; `models` lists the models that
+conversation has used. Show the name beside the route (`<route> - <model>`), never invent one.
 
 ### `POST /api/agents/:a/chat` (SSE)
 Body: `{sessionId?, text, attachments?:[uploadId], model?, provider?, reasoningEffort?, serviceTier?}`.

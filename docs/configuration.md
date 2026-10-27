@@ -102,6 +102,15 @@ Built-in types: `openai-compatible`, `x-api`, `null` (and `mock-gateway`, a fake
 More types can be dropped in as `.js` files under `data/providers/`; they load once, at server start, and a file that fails to
 load is skipped with a warning. The contract is in `src/providers/dropins.js`.
 
+A `models` capability may add `routed: true` when the endpoint is a gateway that picks the real model per request (a
+preset in, a model out): the composer then shows the route instead of a model list. Such a gateway can also answer which
+model a conversation is on; declare where with `servedModelPath` (a path under `baseUrl` that accepts `?session=<id>` and
+answers `{model, models}`) and the composer names it beside the route:
+
+```json
+{ "capabilities": { "models": { "provider": "gateway", "routed": true, "servedModelPath": "/session" } } }
+```
+
 ### `x-api`: social search through the official X API
 
 Implements `socialSearch` against the recent-search endpoint (`GET https://api.x.com/2/tweets/search/recent`), so the X

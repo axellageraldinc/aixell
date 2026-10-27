@@ -10,7 +10,7 @@ import { HttpError, SECURITY_HEADERS, parseCookies, readBody, readJson, requireI
 import { createAuthenticator, readAuthRecord } from './src/auth.js';
 import { createSessionStore, sessionFile } from './src/web-sessions.js';
 import { agentFetch, agentJson, getAgent, isOnline, listAgentDefinitions, publicAgent } from './src/agents.js';
-import { getModels } from './src/models.js';
+import { getModels, getServedModel } from './src/models.js';
 import { coverFile, listCovers, makeCover, removeCover, thumbFile } from './src/covers.js';
 import { setModelHidden } from './src/hidden-models.js';
 import { getProviderUsage } from './src/provider-usage.js';
@@ -474,6 +474,12 @@ async function apiRoute(req, res, url, session) {
   const agent = getAgent(agentName);
   const json = { 'Content-Type': 'application/json' };
 
+  // The real model behind a routed gateway for one conversation (xellter's /v1/session and the like).
+  if (section === 'models' && idOrRun === 'served' && !tail && method === 'GET') {
+    const sessionId = url.searchParams.get('session') ?? '';
+    if (!SESSION_ID_RE.test(sessionId)) throw new HttpError(400, 'Invalid session id.', 'bad_id');
+    return sendJson(res, 200, await getServedModel(agent, sessionId));
+  }
   if (section === 'models' && method === 'GET') return sendJson(res, 200, applyDefaultModel(agent.name, await getModels(agent)));
   if (section === 'models' && idOrRun && tail === 'hidden' && method === 'PUT') {
     if (!MODEL_RE.test(idOrRun)) throw new HttpError(400, 'Invalid model.', 'bad_model');

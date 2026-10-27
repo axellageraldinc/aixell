@@ -87,6 +87,40 @@ async function getCatalogModels(agent, catalog, routed = false) {
   return { ...base, models };
 }
 
+// A routed gateway can also say which real model a conversation is on (`capabilities.models.servedModelPath`, e.g.
+// "/session"): GET <baseUrl><path>?session=<id> answers { model, models[] }. The gateway pins one model per conversation,
+// so this is the name the composer shows beside the route. Anything else (no path, 404 before the first request, offline)
+// leaves the route as the only name; it is never guessed.
+const SERVED_TTL_MS = 3_000;
+const SERVED_CACHE_MAX = 200;
+const servedCache = new Map();
+
+export async function getServedModel(agent, sessionId) {
+  const registry = providersFor(agent);
+  const conf = registry.config('models');
+  if (conf?.routed !== true) return { routed: false, model: null, models: [] };
+  const provider = registry.provider('models');
+  const path = typeof conf.servedModelPath === 'string' ? conf.servedModelPath.trim() : '';
+  if (!path || typeof provider?.call !== 'function') return { routed: true, model: null, models: [] };
+  const cacheKey = `${agent.name}|${sessionId}`;
+  const hit = servedCache.get(cacheKey);
+  if (hit && Date.now() - hit.at < SERVED_TTL_MS) return hit.value;
+  let value = { routed: true, model: null, models: [] };
+  try {
+    const query = `${path}${path.includes('?') ? '&' : '?'}session=${encodeURIComponent(sessionId)}`;
+    const response = await provider.call(query, { timeoutMs: 5_000 });
+    if (response?.ok) {
+      const data = await response.json();
+      const models = Array.isArray(data?.models) ? data.models.filter((m) => typeof m === 'string') : [];
+      const model = [data?.model, data?.last_model].find((m) => typeof m === 'string' && m) ?? null;
+      value = { routed: true, model, models };
+    }
+  } catch { /* the composer keeps the route name */ }
+  if (servedCache.size >= SERVED_CACHE_MAX) servedCache.delete(servedCache.keys().next().value);
+  servedCache.set(cacheKey, { at: Date.now(), value });
+  return value;
+}
+
 export async function getModels(agent) {
   const registry = providersFor(agent);
   const catalog = registry.get('models');
