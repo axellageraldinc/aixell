@@ -29,7 +29,6 @@ export function createAssistantMessage({ startMs = Date.now(), skew = 0 } = {}) 
   const segments = [];
   let current = null;
   let frame = 0;
-  let model = null;
   let phase = { kind: 'thinking', label: t('chat.activity.thinking') };
   let thinking = null; // { row, startTs }
   let lastThinkingRow = null;
@@ -164,9 +163,6 @@ export function createAssistantMessage({ startMs = Date.now(), skew = 0 } = {}) 
       current.dirty = true;
       schedule();
     },
-    setModel(value) {
-      model = value;
-    },
     addPart(el) {
       current = null;
       content.append(el);
@@ -193,7 +189,7 @@ export function createAssistantMessage({ startMs = Date.now(), skew = 0 } = {}) 
       // A reply that was a single model call with no tools and no reasoning has nothing worth listing.
       if (tools.length === 0 && !lastThinkingRow?.hasText()) activity.node.hidden = true;
       activity.setTotal(elapsed);
-      if (!partial && (segments.some((s) => s.text.trim()) || !activity.isEmpty())) meta.update({ timestamp: Date.now() / 1000, model, duration: elapsed });
+      if (!partial && (segments.some((s) => s.text.trim()) || !activity.isEmpty())) meta.update({ timestamp: Date.now() / 1000, duration: elapsed });
     },
   };
 }

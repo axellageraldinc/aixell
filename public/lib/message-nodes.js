@@ -65,7 +65,7 @@ export function userNode(content, timestamp, files = null) {
   );
 }
 
-// Meta line with time, model, total time cost and a copy button. update() fills it once the reply is complete.
+// Meta line with time, total time cost and a copy button. update() fills it once the reply is complete.
 export function assistantMeta(getText) {
   const info = h('span', { 'data-testid': 'reply-meta' });
   const copy = h(
@@ -81,10 +81,9 @@ export function assistantMeta(getText) {
   const el = h('div', { className: 'meta', hidden: true }, info, copy);
   return {
     el,
-    update({ timestamp = null, model = null, duration = null } = {}) {
+    update({ timestamp = null, duration = null } = {}) {
       info.textContent = [
         timestamp == null ? '' : fmtDateTime(timestamp),
-        model,
         duration == null ? '' : t('chat.reply.duration', { duration: fmtDuration(duration) }),
       ].filter(Boolean).join(' · ');
       el.hidden = false;
@@ -97,9 +96,9 @@ export const systemNode = (content) => h('p', { className: 'msg-note' }, content
 export const fileSizeLabel = fmtBytes;
 
 // activity: an Activity group node or null. Used for history; the live message builds the same parts incrementally.
-export function assistantNode({ activity = null, answer = '', timestamp = null, duration = null, model = null }) {
+export function assistantNode({ activity = null, answer = '', timestamp = null, duration = null }) {
   const meta = assistantMeta(() => answer);
   const parts = [activity, answer.trim() ? renderMarkdown(answer) : null];
-  if (parts.some(Boolean) || duration != null) meta.update({ timestamp, model, duration });
+  if (parts.some(Boolean) || duration != null) meta.update({ timestamp, duration });
   return h('article', { className: 'msg msg-assistant', 'data-testid': 'message-assistant' }, parts, meta.el);
 }

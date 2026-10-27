@@ -247,7 +247,6 @@ function handleEvent(event, data, ctx) {
       emit('run:step');
       ensureMessage(ctx);
       if (typeof data.content === 'string') ctx.message.setText(data.content);
-      ctx.message.setModel(data.runtime?.model ?? null);
       loadServedModel(ctx.run.sessionId ?? state.sessionId);
       if (data.interrupted) { ctx.stopped = true; ctx.message.setNote(t('chat.stopped')); }
       break;
