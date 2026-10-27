@@ -35,6 +35,13 @@ export async function loadModels({ silent = false } = {}) {
   emit('models:changed');
 }
 
+// Whether an effort may be sent for this model.
+//
+// A plain catalogue knows which of its models can think, so an effort is only offered for those. A routed
+// gateway (xellter) resolves the real model per request and its catalogue entry carries no such flag, so the
+// flag would silently drop the effort the owner picked. The gateway decides what to do with it.
+const effortAllowed = (model) => state.models?.routed === true || findModel(model)?.reasoning === true;
+
 // Options sent with every chat request: only what the user picked plus the model the UI shows.
 export function chatOptions() {
   const current = state.models?.current ?? {};
@@ -45,7 +52,7 @@ export function chatOptions() {
   if (model) options.model = model;
   if (provider) options.provider = provider;
   const effort = s.reasoningEffort ?? state.models?.defaultEffort;
-  if (findModel(model)?.reasoning && effort) options.reasoningEffort = effort;
+  if (effort && effortAllowed(model)) options.reasoningEffort = effort;
   if (s.serviceTier) options.serviceTier = s.serviceTier;
   // Visualize is off unless this chat turned it on; the server only adds the grammar prompt when it is true.
   if (s.visualize === true) options.visualize = true;
