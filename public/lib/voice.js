@@ -151,7 +151,7 @@ export function openVoice() {
     reply.replaceChildren();
     turn = { ctx: null, chunker: createChunker(), gotText: false, ended: false, queue: [], pumping: false, scheduled: [], playing: 0, playEnd: 0, abort: new AbortController(), textOnly: false };
     setMode('thinking');
-    const started = sendMessage({ text, attachments: [] });
+    const started = sendMessage({ text, attachments: [], spoken: true });
     turn.ctx = liveRun(state.agent, state.sessionId); // created synchronously by sendMessage
     started.then((ok) => { if (ok === false && turn && !turn.gotText) { setMode('idle'); say(t('voice.busy')); turn = null; } });
   }

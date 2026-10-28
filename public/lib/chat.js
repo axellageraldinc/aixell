@@ -15,10 +15,11 @@ import { provisionalFrom, setProvisional } from './auto-title.js';
 import { setPaused, rekeyQueue, enqueue } from './queue.js';
 import { t } from './i18n.js';
 
+// spoken: the turn comes from the voice chat, so the agent is told its answer will be read aloud.
 // attachments: [{ id, name, kind }] from the composer. voice: a recording (File) sent with the Send button while it was
 // still recording: the message is shown at once and the upload and transcription run as the first step of the reply.
 // Returns false when no run could start.
-export async function sendMessage({ text, attachments, voice = null }) {
+export async function sendMessage({ text, attachments, voice = null, spoken = false }) {
   const agent = state.agent;
   if (!agent || liveRun(agent, state.sessionId)) return false;
 
@@ -33,7 +34,7 @@ export async function sendMessage({ text, attachments, voice = null }) {
     removeLive(ctx.key, ctx.userEl);
     removeLive(ctx.key, ctx.message.node);
     forget(ctx);
-    return sendMessage({ text, attachments, voice });
+    return sendMessage({ text, attachments, voice, spoken });
   };
 
   if (voice) {
@@ -50,7 +51,7 @@ export async function sendMessage({ text, attachments, voice = null }) {
       return true;
     }
   }
-  const body = { text, ...chatOptions() };
+  const body = { text, ...chatOptions(), ...(spoken ? { spoken: true } : {}) };
   if (state.sessionId) body.sessionId = state.sessionId;
   if (attachments.length) body.attachments = attachments.map((a) => a.id);
 

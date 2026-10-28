@@ -62,6 +62,17 @@ test('the visualize switch adds the diagram instructions to the system message o
   assert.ok(visual.length > plain.length + 500);
 });
 
+test('a spoken turn tells the agent its answer will be read aloud, for that turn only', async () => {
+  await send({ text: 'typed' });
+  const typed = app.fake.chatBodies.at(-1).body.system_message;
+  await send({ text: 'said', spoken: true });
+  const said = app.fake.chatBodies.at(-1).body.system_message;
+  assert.ok(!/read aloud/.test(typed));
+  assert.match(said, /read aloud/);
+  await send({ text: 'typed again' });
+  assert.ok(!/read aloud/.test(app.fake.chatBodies.at(-1).body.system_message), 'the next typed turn is unchanged');
+});
+
 test('input is validated before the agent is bothered', async () => {
   const before = app.fake.chatBodies.length;
   const cases = [

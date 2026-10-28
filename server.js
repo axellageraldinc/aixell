@@ -302,6 +302,12 @@ const WEB_HINT = 'You are chatting through the web. The web can show images, aud
   + 'for example: MEDIA:/home/user/.hermes/profiles/agent/audio_out/voice.mp3 . Never say audio or video cannot be shown, '
   + 'and never write a bare path. Keep the file in the agent profile folder (or /tmp) so it can be shown.';
 
+// Added to a turn that comes from the voice chat: the answer is read aloud, so it has to work as speech.
+const VOICE_HINT = 'This turn is a spoken conversation and your answer will be read aloud. Reply in the user\'s language, in short, natural, '
+  + 'conversational sentences (usually one to three), with no markdown, lists, tables, code, emoji or web addresses. '
+  + 'Answer from what you already know about the user and this conversation. Do not search the web or run tools unless the request truly needs it; '
+  + 'if you are missing one detail, ask one short question.';
+
 function spokenTitle(transcript) {
   const line = transcript.replace(/\s+/g, ' ').trim();
   if (line.length <= 48) return line;
@@ -362,7 +368,7 @@ async function streamChat(req, res, agent) {
   // Visualize is opt-in per chat: the model only learns the openui-lang grammar when the user asked for it, so the
   // ~1.3k tokens of instructions never ride along on a normal turn.
   const visualize = body.visualize === true;
-  payload.system_message = [personality, WEB_HINT, visualize ? OPENUI_PROMPT : null].filter(Boolean).join('\n\n');
+  payload.system_message = [personality, WEB_HINT, visualize ? OPENUI_PROMPT : null, body.spoken === true ? VOICE_HINT : null].filter(Boolean).join('\n\n');
 
   const upstream = await agentFetch(agent, `/api/sessions/${encodeURIComponent(sessionId)}/chat/stream`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), timeoutMs: 3_600_000,
