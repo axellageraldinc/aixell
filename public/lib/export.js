@@ -10,7 +10,7 @@ import { APP_NAME } from './brand.js';
 
 const PAGE = 500;
 
-async function allMessages(id) {
+export async function allMessages(id) {
   const base = `${agentPath(state.agent)}/sessions/${encodeURIComponent(id)}/messages`;
   const rows = [];
   for (let offset = 0; offset < 50_000; offset += PAGE) {
@@ -22,7 +22,7 @@ async function allMessages(id) {
 }
 
 // What the agent said in one turn: the words next to tool calls, then the final answer.
-function answerOf(turn) {
+export function answerOf(turn) {
   const parts = [];
   for (const m of turn.items) {
     if (m.role !== 'assistant' || typeof m.content !== 'string' || !m.content.trim()) continue;

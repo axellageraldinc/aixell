@@ -139,3 +139,28 @@ connector reads real posts. It needs a bearer token of an X developer app; each 
 The slot topic becomes `(word OR word ...)` (at most 8 words), always with `-is:retweet has:links`. `allowedHandles` become
 `(from:a OR from:b)`, otherwise `excludedHandles` become `-from:a`. Recent search only reaches back seven days, so an older
 start date is clamped.
+
+## Share a chat (public link)
+
+A chat can be shared as a read-only page that needs no sign-in. The page is a frozen snapshot of the messages (no tool
+calls, reasoning or uploaded files), pushed to a Cloudflare Worker's KV store and served from the Worker's own hostname.
+The app is not reachable from the link, and the app's own address is stripped from the page. The Worker sends a CSP that
+forbids scripts and network access.
+
+1. Deploy `deploy/cloudflare-share/` (a KV namespace, `worker.js`, a custom domain on your zone; see `wrangler.toml.example`).
+2. Create a Cloudflare API token limited to **Workers KV Storage: Edit** for that account, and keep it in `data/`.
+3. Write `data/share.json`:
+
+```json
+{
+  "baseUrl": "https://share.example.com",
+  "accountId": "<account id>",
+  "namespaceId": "<KV namespace id>",
+  "apiToken": "file:share-secret.json#token",
+  "ttlDays": 30
+}
+```
+
+`apiToken` is a secret reference (see above). `ttlDays` sets when a link expires (`0` = never). In the chat menu,
+"Share public link" copies the link, "Update shared link" publishes a new snapshot at the same address, and "Stop sharing"
+deletes the page. Links are 256-bit random tokens; anyone who has one can read that chat.

@@ -1,0 +1,11 @@
+# Deploy once:  npx wrangler kv namespace create SHARES   (copy the id below)  then  npx wrangler deploy
+name = "aixell-share"
+main = "worker.js"
+compatibility_date = "2026-01-01"
+
+# Serve it from a hostname that is NOT the app's: a custom domain on your Cloudflare zone.
+routes = [{ pattern = "share.example.com", custom_domain = true }]
+
+[[kv_namespaces]]
+binding = "SHARES"
+id = "<KV-NAMESPACE-ID>"

@@ -28,6 +28,7 @@ import { priceOf, estimateCost, averagePrompt, loadPrices } from './src/pricing.
 import { getTemplates, setTemplates } from './src/templates.js';
 import { getBudget, setBudget } from './src/budget.js';
 import { putArtifact, serveArtifact } from './src/artifacts.js';
+import { listShares, publishShare, readSettings as shareSettings, revokeShare } from './src/shares.js';
 import { listTelegramSessions, telegramMessages, transcriptOf } from './src/telegram.js';
 import { lastPromptTokens, searchMessages } from './src/state-db.js';
 import { OPENUI_PROMPT } from './src/openui-prompt.js';
@@ -427,6 +428,17 @@ async function apiRoute(req, res, url, session) {
   if (root === 'artifacts' && method === 'POST') {
     const body = await readJson(req, 600 * 1024);
     return sendJson(res, 200, { id: putArtifact(body.code, body.kind === 'svg' ? 'svg' : 'html') });
+  }
+
+  if (root === 'shares') {
+    if (!agentName && method === 'GET') return sendJson(res, 200, { configured: Boolean(shareSettings()), data: listShares() });
+    if (!agentName && method === 'POST') {
+      const body = await readJson(req, 5 * 1024 * 1024);
+      if (!SESSION_ID_RE.test(String(body.sessionId)) || typeof body.body !== 'string' || !body.body.trim()) throw new HttpError(400, 'A chat id and its content are required.', 'bad_request');
+      const agent = getAgent(String(body.agent ?? config.agentNames[0]));
+      return sendJson(res, 200, await publishShare({ agent: agent.name, sessionId: body.sessionId, title: String(body.title ?? '').slice(0, 300) || 'Chat', body: body.body }));
+    }
+    if (agentName && method === 'DELETE') { await revokeShare(agentName); return sendJson(res, 200, { ok: true }); }
   }
 
   if (root === 'telegram' && agentName === 'sessions' && method === 'GET') {
