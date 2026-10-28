@@ -436,7 +436,7 @@ async function apiRoute(req, res, url, session) {
       const body = await readJson(req, 5 * 1024 * 1024);
       if (!SESSION_ID_RE.test(String(body.sessionId)) || typeof body.body !== 'string' || !body.body.trim()) throw new HttpError(400, 'A chat id and its content are required.', 'bad_request');
       const agent = getAgent(String(body.agent ?? config.agentNames[0]));
-      return sendJson(res, 200, await publishShare({ agent: agent.name, sessionId: body.sessionId, title: String(body.title ?? '').slice(0, 300) || 'Chat', body: body.body }));
+      return sendJson(res, 200, await publishShare({ agent: agent.name, sessionId: body.sessionId, title: String(body.title ?? '').slice(0, 300) || 'Chat', body: body.body, ttlHours: body.ttlHours === null ? null : body.ttlHours === undefined ? undefined : Number(body.ttlHours) }));
     }
     if (agentName && method === 'DELETE') { await revokeShare(agentName); return sendJson(res, 200, { ok: true }); }
   }

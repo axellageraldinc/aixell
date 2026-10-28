@@ -33,6 +33,21 @@ test('publish stores the page, lists it, and redacts the app address', async () 
   assert.equal((await me.get('/api/shares')).data.data.length, 1);
 });
 
+test('the expiry is per link: custom hours, none, or refused when out of range', async () => {
+  const send = (sessionId, ttlHours) => me.post('/api/shares', { agent: app.agentName, sessionId, title: 't', body: '<p>x</p>', ttlHours });
+  const hours = await send('ttl-2h', 2);
+  assert.equal(hours.status, 200);
+  assert.match(calls.at(-1).url, /expiration_ttl=7200/);
+  assert.ok(Math.abs(hours.data.expiresAt - (Date.now() + 7200_000)) < 5000);
+  const never = await send('ttl-never', null);
+  assert.equal(never.status, 200);
+  assert.doesNotMatch(calls.at(-1).url, /expiration_ttl/);
+  assert.equal(never.data.expiresAt, null);
+  assert.equal((await send('ttl-bad', 0)).data.error.code, 'bad_ttl');
+  assert.equal((await send('ttl-bad', 'soon')).data.error.code, 'bad_ttl');
+  for (const share of [hours.data, never.data]) await me.delete(`/api/shares/${share.token}`);
+});
+
 test('markup that could run is refused', async () => {
   const res = await me.post('/api/shares', { agent: app.agentName, sessionId: 'evil', title: 'x', body: '<p onclick="x()">hi</p><script>1</script>' });
   assert.equal(res.status, 400);

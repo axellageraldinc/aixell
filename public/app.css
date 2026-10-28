@@ -1297,3 +1297,9 @@ a.att-file:hover { border-color: color-mix(in oklab, var(--color-primary) 45%, t
 select.select { cursor: pointer; padding-inline: 12px 32px; border-radius: 10px; }
 select.select option { background: var(--bgColor-default); color: var(--fgColor-default); padding: 8px 12px; }
 select.select option:checked { background: var(--bgColor-accent-muted); }
+
+/* Share dialog */
+.share-dlg { gap: 14px; }
+.share-dlg .dlg-row { flex-wrap: wrap; align-items: center; gap: 8px; }
+.share-link { flex: 1 1 220px; min-width: 0; }
+.share-hours { width: 6rem; }

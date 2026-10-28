@@ -106,7 +106,8 @@ async function kv(settings, method, token, { body, ttlSeconds } = {}) {
 }
 
 // Publishes a chat, or refreshes the snapshot of one that is already shared (same link).
-export async function publishShare({ agent, sessionId, title, body }) {
+// ttlHours: a number of hours, or null for a link that never expires (undefined falls back to ttlDays in share.json).
+export async function publishShare({ agent, sessionId, title, body, ttlHours }) {
   const settings = requireSettings();
   const page = buildPage({ title, body });
   if (Buffer.byteLength(page) > MAX_HTML_BYTES) throw new HttpError(413, 'This chat is too large to share.', 'too_large');
@@ -114,8 +115,11 @@ export async function publishShare({ agent, sessionId, title, body }) {
   const now = Date.now();
   const existing = index.find((s) => s.agent === agent && s.sessionId === sessionId && (!s.expiresAt || s.expiresAt > now));
   const token = existing?.token ?? crypto.randomBytes(32).toString('base64url');
-  const expiresAt = settings.ttlDays ? now + settings.ttlDays * 86_400_000 : null;
-  await kv(settings, 'PUT', token, { body: page, ttlSeconds: expiresAt ? Math.max(60, settings.ttlDays * 86_400) : 0 });
+  const hours = ttlHours === undefined ? settings.ttlDays * 24 : ttlHours;
+  if (hours !== null && !(Number.isFinite(hours) && hours >= 1 && hours <= 87_600)) throw new HttpError(400, 'The expiry must be 1 to 87600 hours, or none.', 'bad_ttl');
+  const ttlSeconds = hours === null || hours === 0 ? 0 : Math.round(hours * 3600);
+  const expiresAt = ttlSeconds ? now + ttlSeconds * 1000 : null;
+  await kv(settings, 'PUT', token, { body: page, ttlSeconds });
   const share = { token, agent, sessionId, title: String(title).slice(0, 300), createdAt: existing?.createdAt ?? now, updatedAt: now, expiresAt };
   writeIndex([...index.filter((s) => s.token !== token && (!s.expiresAt || s.expiresAt > now)), share]);
   return publicView(settings, share);

@@ -161,6 +161,7 @@ forbids scripts and network access.
 }
 ```
 
-`apiToken` is a secret reference (see above). `ttlDays` sets when a link expires (`0` = never). In the chat menu,
-"Share public link" copies the link, "Update shared link" publishes a new snapshot at the same address, and "Stop sharing"
-deletes the page. Links are 256-bit random tokens; anyone who has one can read that chat.
+`apiToken` is a secret reference (see above). `ttlDays` is only the fallback expiry. The chat's Share button (in the header, or in the chat's `⋯` menu in the list) opens a
+dialog where each link gets its own expiry: a number of hours, or never. "Create link" copies the link, "Update snapshot"
+publishes the current messages at the same address, and "Stop sharing" deletes the page (it can stay visible for up to a
+minute, the time KV takes to propagate a delete). Links are 256-bit random tokens; anyone who has one can read that chat.

@@ -10,7 +10,8 @@ const HEADERS = {
   'X-Frame-Options': 'DENY',
   'Referrer-Policy': 'no-referrer',
   'X-Robots-Tag': 'noindex, nofollow, noarchive',
-  'Cache-Control': 'public, max-age=300',
+  // Never cached by browsers or Cloudflare, so "Stop sharing" takes effect as fast as KV allows (up to about a minute).
+  'Cache-Control': 'no-store',
 };
 
 export default {

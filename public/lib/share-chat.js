@@ -3,6 +3,7 @@
 import { api } from './api.js';
 import { state } from './state.js';
 import { h } from './dom.js';
+import { icon } from './icons.js';
 import { groupTurns } from './turns.js';
 import { userNode, assistantNode, parseUserContent } from './message-nodes.js';
 import { allMessages, answerOf } from './export.js';
@@ -71,38 +72,70 @@ export function snapshotHtml(messages) {
   return page.innerHTML.trim();
 }
 
-async function currentShares() {
-  try { return (await api('/api/shares')).data ?? []; } catch { return []; }
+async function currentShare(sessionId) {
+  try { return ((await api('/api/shares')).data ?? []).find((s) => s.sessionId === sessionId) ?? null; } catch { return null; }
 }
 
-export async function shareChat(session) {
-  try {
-    const messages = await allMessages(session.id);
-    const body = snapshotHtml(messages);
-    if (!body) return notify(t('share.error.empty'));
-    const share = await api('/api/shares', { method: 'POST', body: { agent: state.agent, sessionId: session.id, title: sessionTitle(session), body } });
-    await copyText(share.url);
-    notify(t('share.done'));
-  } catch (err) {
-    notify(err.code === 'share_not_configured' ? t('share.error.setup') : err.message);
-  }
-}
+const fmtExpiry = (share) => (share.expiresAt ? t('share.expires', { date: new Date(share.expiresAt).toLocaleString() }) : t('share.neverExpires'));
 
-async function stopSharing(token) {
-  try {
-    await api(`/api/shares/${encodeURIComponent(token)}`, { method: 'DELETE' });
-    notify(t('share.stopped'));
-  } catch (err) {
-    notify(err.message);
-  }
-}
+// The dialog for one chat: create the link (with its expiry), copy it, publish a fresh snapshot, or take it down.
+export async function openShareDialog(session) {
+  if (!session?.id) return;
+  const opener = document.activeElement;
+  const shut = () => { document.removeEventListener('keydown', onKey, true); overlay.remove(); opener?.focus?.(); };
+  const onKey = (event) => { if (event.key === 'Escape') { event.stopPropagation(); shut(); } };
+  const close = h('button', { type: 'button', className: 'ibtn', 'aria-label': t('common.close'), onClick: shut }, icon('x', 18));
+  const body = h('div', { className: 'dlg-body share-dlg' }, h('p', { className: 'dlg-note' }, t('common.loading')));
+  const panel = h('div', { className: 'modal-box dlg-panel', role: 'dialog', 'aria-modal': 'true', 'aria-label': t('share.title'), 'data-testid': 'share-dialog' },
+    h('div', { className: 'dlg-head' }, h('h2', {}, t('share.title')), h('span', { className: 'dlg-spacer' }), close), body);
+  const overlay = h('div', { className: 'dlg modal modal-open' }, panel);
+  overlay.addEventListener('mousedown', (event) => { if (event.target === overlay) shut(); });
+  document.addEventListener('keydown', onKey, true);
+  document.body.append(overlay);
 
-// Menu entries for one chat: create the link, or refresh / remove the one that exists.
-export async function shareItems(session) {
-  const existing = (await currentShares()).find((s) => s.sessionId === session.id);
-  if (!existing) return [{ label: t('share.create'), icon: 'external-link', testid: 'share-create', action: () => shareChat(session) }];
-  return [
-    { label: t('share.update'), icon: 'external-link', testid: 'share-update', action: () => shareChat(session) },
-    { label: t('share.stop'), icon: 'trash', destructive: true, testid: 'share-stop', action: () => stopSharing(existing.token) },
-  ];
+  const draw = (share) => {
+    const mode = h('select', { className: 'input input-sm', 'aria-label': t('share.expiry'), 'data-testid': 'share-expiry-mode' },
+      h('option', { value: 'hours' }, t('share.expireAfter')), h('option', { value: 'never' }, t('share.never')));
+    const hours = h('input', { type: 'number', className: 'input input-sm share-hours', min: 1, max: 87600, step: 1, value: 24, 'aria-label': t('share.hours'), 'data-testid': 'share-hours' });
+    const unit = h('span', { className: 'muted' }, t('share.hoursUnit'));
+    const sync = () => { hours.hidden = unit.hidden = mode.value === 'never'; };
+    mode.addEventListener('change', sync);
+    sync();
+    const message = h('p', { className: 'dlg-note', role: 'status' });
+    const publish = h('button', { type: 'button', className: 'btn btn-primary btn-sm', 'data-testid': 'share-publish' }, share ? t('share.update') : t('share.create'));
+    publish.addEventListener('click', async () => {
+      const ttlHours = mode.value === 'never' ? null : Number(hours.value);
+      if (ttlHours !== null && !(ttlHours >= 1 && ttlHours <= 87600)) return void (message.textContent = t('share.error.hours'));
+      publish.disabled = true;
+      message.textContent = t('common.loading');
+      try {
+        const messages = await allMessages(session.id);
+        const html = snapshotHtml(messages);
+        if (!html) throw new Error(t('share.error.empty'));
+        const made = await api('/api/shares', { method: 'POST', body: { agent: state.agent, sessionId: session.id, title: sessionTitle(session), body: html, ttlHours } });
+        await copyText(made.url);
+        notify(t('share.done'));
+        draw(made);
+      } catch (err) {
+        publish.disabled = false;
+        message.textContent = err.code === 'share_not_configured' ? t('share.error.setup') : err.message;
+      }
+    });
+    const rows = [h('p', { className: 'dlg-note' }, t('share.about'))];
+    if (share) {
+      const link = h('input', { type: 'text', readOnly: true, className: 'input input-sm share-link', value: share.url, 'aria-label': t('share.link'), 'data-testid': 'share-link' });
+      link.addEventListener('focus', () => link.select());
+      const copy = h('button', { type: 'button', className: 'btn btn-sm', onClick: async () => notify((await copyText(share.url)) ? t('share.copied') : t('common.copyFailed')) }, t('share.copy'));
+      rows.push(h('div', { className: 'dlg-row' }, link, copy), h('p', { className: 'dlg-note', 'data-testid': 'share-status' }, fmtExpiry(share)));
+    }
+    rows.push(
+      h('div', { className: 'dlg-row' }, h('span', {}, t('share.expiry')), mode, hours, unit),
+      h('div', { className: 'dlg-row' }, publish, h('span', { className: 'dlg-spacer' }), share ? h('button', { type: 'button', className: 'btn btn-error btn-ghost btn-sm', 'data-testid': 'share-stop', onClick: async () => {
+        try { await api(`/api/shares/${encodeURIComponent(share.token)}`, { method: 'DELETE' }); notify(t('share.stopped')); draw(null); } catch (err) { message.textContent = err.message; }
+      } }, t('share.stop')) : null),
+      message,
+    );
+    body.replaceChildren(...rows);
+  };
+  draw(await currentShare(session.id));
 }

@@ -6,6 +6,7 @@ import { contextInfo } from './models.js';
 import { displayTitle } from './session-row.js';
 import { provisionalTitle } from './auto-title.js';
 import { chatCostLevel, initBudget } from './budget.js';
+import { openShareDialog } from './share-chat.js';
 import { t } from './i18n.js';
 
 const titleEl = $('#chat-title');
@@ -47,6 +48,11 @@ function renderCost() {
 export function initHeader() {
   costChip.addEventListener('click', () => emit('inspector:toggle'));
   meter.addEventListener('click', () => emit('inspector:toggle'));
+  const shareButton = $('#topbar-share');
+  shareButton.addEventListener('click', () => openShareDialog(state.session ?? state.sessions.find((x) => x.id === state.sessionId) ?? { id: state.sessionId }));
+  const renderShare = () => { shareButton.hidden = !state.sessionId; };
+  on('session:changed', renderShare);
+  renderShare();
   $('#topbar-new').addEventListener('click', () => emit('session:select', null));
   for (const type of ['session:changed', 'sessions:reload', 'sessions:loaded']) on(type, renderTitle);
   for (const type of ['session:changed', 'settings:changed', 'models:changed', 'usage:changed', 'context:changed']) on(type, renderMeter);
