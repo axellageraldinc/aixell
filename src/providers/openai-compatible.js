@@ -82,7 +82,7 @@ export class OpenAICompatible {
     return { text };
   }
 
-  async #synthesize({ text, model, voice, format = 'mp3', timeoutMs = 120_000 }) {
+  async #synthesize({ text, model, voice, speed, format = 'mp3', timeoutMs = 120_000 }) {
     const key = this.key();
     if (!key) throw noKey('Speech needs an API key for the speech provider.');
     let res;
@@ -90,7 +90,7 @@ export class OpenAICompatible {
       res = await fetch(`${this.baseUrl}/audio/speech`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json', 'User-Agent': this.userAgent },
-        body: JSON.stringify({ model, input: text, ...(voice ? { voice } : {}), response_format: format }),
+        body: JSON.stringify({ model, input: text, ...(voice ? { voice } : {}), ...(speed ? { speed } : {}), response_format: format }),
         signal: AbortSignal.timeout(timeoutMs),
       });
     } catch {

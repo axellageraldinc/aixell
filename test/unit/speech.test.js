@@ -56,3 +56,16 @@ test('synthesizeSpeech without a speech provider is a 501', async () => {
   compat.setProviderConfig(null);
   await assert.rejects(synthesizeSpeech(agentOf(''), 'Halo'), (e) => e.status === 501 && e.code === 'no_speech_backend');
 });
+
+test('synthesizeSpeech passes an optional speed on and refuses one out of range', async () => {
+  compat.setProviderConfig(null);
+  const gw = await startGateway(compat);
+  try {
+    const agent = agentOf(`GATEWAY_API_KEY=${GW_KEY}\n`, { baseUrl: gw.url });
+    await synthesizeSpeech(agent, 'Halo', { speed: 0.9 });
+    assert.deepEqual(gw.requests.filter((r) => r.path === '/audio/speech').at(-1).body, { model: 'tts-1', input: 'Halo', voice: 'alloy', speed: 0.9, response_format: 'mp3' });
+    for (const speed of [0.1, 3, 'fast', null, NaN]) {
+      await assert.rejects(synthesizeSpeech(agent, 'Halo', { speed }), (e) => e.status === 400 && e.code === 'tts_bad_speed', String(speed));
+    }
+  } finally { await gw.close(); }
+});

@@ -9,7 +9,7 @@ import { state, on, liveRun } from './state.js';
 import { sendMessage, stopRun } from './chat.js';
 import { t } from './i18n.js';
 import { createChunker, wordTimings, wordAt } from './voice-speech.js';
-import { pickFiller, waitPlan, createFillerCache, PREFETCH_LEAD } from './voice-fillers.js';
+import { pickFiller, waitPlan, createFillerCache } from './voice-fillers.js';
 import { voiceSupported } from './voice-support.js';
 
 const PICK = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg;codecs=opus'];
@@ -22,10 +22,11 @@ let active = null;
 
 // The synthesized filler phrases, one cache per agent, kept while the page lives so a phrase is requested once.
 const fillerCaches = new Map();
+let fillerSpeed = 1; // how fast the fillers are spoken, from the server's sets
 function fillerCache(agent) {
   if (!fillerCaches.has(agent)) {
     fillerCaches.set(agent, createFillerCache(async (text) => {
-      const res = await fetchRaw(`${agentPath(agent)}/speech`, { method: 'POST', body: { text } });
+      const res = await fetchRaw(`${agentPath(agent)}/speech`, { method: 'POST', body: { text, speed: fillerSpeed } });
       if (!res.ok) throw await toApiError(res);
       return res.arrayBuffer();
     }));
@@ -171,6 +172,7 @@ export function openVoice() {
   async function loadFillers() {
     try {
       fillerSet = await api(`${agentPath(state.agent)}/voice-fillers`);
+      fillerSpeed = Number(fillerSet.speed) || 1;
     } catch {
       return; // no fillers: the voice chat works the same without them
     }
@@ -181,23 +183,28 @@ export function openVoice() {
     }
   }
 
+  // The first filler plays at once. Each later one comes after waiting `after` seconds from the end of the previous one (a
+  // phrase that could not be played counts as ended now), following the plan in order; the last wait repeats.
   function startFillers(mine) {
     const set = fillerSet;
     if (!set) return;
     const cache = fillerCache(state.agent);
-    const fill = mine.fill;
     const ready = set.start.filter((text) => cache.ready(text));
-    fill.last = pickFiller(ready.length ? ready : set.start, fill.last);
-    fill.timers.push(setTimeout(() => playFiller(mine, fill.last, 1500), 0));
-    for (const { at, phrases } of waitPlan(set.waits)) {
-      fill.timers.push(setTimeout(() => { // ask for the audio ahead of the mark
-        const text = pickFiller(phrases, fill.last);
-        fill.last = text;
-        fill.picked.set(at, text);
-        cache.get(text);
-      }, Math.max(0, at - PREFETCH_LEAD) * 1000));
-      fill.timers.push(setTimeout(() => playFiller(mine, fill.picked.get(at) ?? pickFiller(phrases, fill.last), 800), at * 1000));
-    }
+    mine.fill.last = pickFiller(ready.length ? ready : set.start, mine.fill.last);
+    mine.fill.plan = waitPlan(set.waits);
+    mine.fill.step = 0;
+    mine.fill.timers.push(setTimeout(() => playFiller(mine, mine.fill.last, 1500), 0));
+  }
+
+  function nextFiller(mine) {
+    const fill = mine.fill;
+    if (turn !== mine || mine.gotText || !fill.plan?.length) return;
+    const { after, phrases } = fill.plan[Math.min(fill.step, fill.plan.length - 1)];
+    fill.step += 1;
+    const text = pickFiller(phrases, fill.last);
+    fill.last = text;
+    fillerCache(state.agent).get(text); // asked for now: the wait is long enough for the audio to be ready
+    fill.timers.push(setTimeout(() => playFiller(mine, text, 800), after * 1000));
   }
 
   // No new fillers (the answer has started or the turn is over). A phrase that is being said finishes, unless `source`.
@@ -207,25 +214,27 @@ export function openVoice() {
     mine.fill.timers = [];
     fillerLine.remove();
     if (source && mine.fill.source) {
+      mine.fill.source.onended = null;
       try { mine.fill.source.stop(); } catch { /* not started */ }
       mine.fill.source = null;
     }
   }
 
   async function playFiller(mine, text, waitMs) {
-    if (!text || turn !== mine || mine.gotText || audio.currentTime < mine.fill.endsAt) return;
-    const bytes = await Promise.race([fillerCache(state.agent).get(text), pause(waitMs).then(() => null)]);
-    if (!bytes || turn !== mine || mine.gotText) return;
-    let buffer;
-    try {
-      buffer = await audio.decodeAudioData(bytes.slice(0));
-    } catch {
-      return;
+    if (turn !== mine || mine.gotText) return;
+    const bytes = text && audio.currentTime >= mine.fill.endsAt ? await Promise.race([fillerCache(state.agent).get(text), pause(waitMs).then(() => null)]) : null;
+    let buffer = null;
+    if (bytes && turn === mine && !mine.gotText) {
+      try {
+        buffer = await audio.decodeAudioData(bytes.slice(0));
+      } catch { /* skipped */ }
     }
-    if (turn !== mine || mine.gotText || audio.currentTime < mine.fill.endsAt) return;
+    if (turn !== mine || mine.gotText) return;
+    if (!buffer || audio.currentTime < mine.fill.endsAt) { nextFiller(mine); return; }
     const source = audio.createBufferSource();
     source.buffer = buffer;
     source.connect(audio.destination);
+    source.onended = () => { if (mine.fill.source === source) { mine.fill.source = null; nextFiller(mine); } };
     const startAt = audio.currentTime + 0.05;
     mine.fill.endsAt = startAt + buffer.duration;
     mine.fill.source = source;
@@ -240,7 +249,7 @@ export function openVoice() {
     you.textContent = text;
     reply.replaceChildren();
     turn = { ctx: null, chunker: createChunker(), gotText: false, ended: false, queue: [], pumping: false, scheduled: [], playing: 0, playEnd: 0, abort: new AbortController(), textOnly: false,
-      fill: { timers: [], last: '', picked: new Map(), endsAt: 0, source: null } };
+      fill: { timers: [], last: '', plan: null, step: 0, endsAt: 0, source: null } };
     setMode('thinking');
     const started = sendMessage({ text, attachments: [], spoken: true });
     turn.ctx = liveRun(state.agent, state.sessionId); // created synchronously by sendMessage

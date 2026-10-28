@@ -1,6 +1,6 @@
-// While the agent is still working the voice chat speaks short filler phrases: one right away, more at the marks, and none once
-// the answer starts. The marks are set to 1 and 2 seconds in a custom data/voice-fillers.json and the fake agent is slow, so the
-// whole timeline runs in a few seconds. The speech provider is a local fake; nothing here reaches a real service.
+// While the agent is still working the voice chat speaks short filler phrases: one right away, more each after a wait since the
+// previous one ended, and none once the answer starts. The waits are set to 1 second in a custom data/voice-fillers.json and the
+// fake agent is slow, so the whole timeline runs in a few seconds. The speech provider is a local fake; nothing here reaches a real service.
 import { describe, test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
@@ -13,7 +13,7 @@ import { FAKES, wav } from './voice-fakes.js';
 
 const bin = findChrome();
 const skip = bin ? false : 'no Chrome or Chromium found';
-const FILLERS = { start: ['Hold on one moment.'], waits: [{ at: [1, 2], phrases: ['Still on it one.', 'Still on it two.'] }] };
+const FILLERS = { speed: 0.9, start: ['Hold on one moment.'], waits: [{ after: [1, 1], phrases: ['Still on it one.', 'Still on it two.'] }] };
 
 for (const [name, viewport] of Object.entries(VIEWPORTS)) {
   describe(`voice chat fillers (${name} ${viewport.width}x${viewport.height})`, { skip }, () => {
@@ -44,7 +44,7 @@ for (const [name, viewport] of Object.entries(VIEWPORTS)) {
       await gw?.close();
     });
 
-    test('a filler is spoken at once, another at the mark, and none after the answer starts', async () => {
+    test('a filler is spoken at once, another after the wait, and none after the answer starts', async () => {
       await page.waitFor("document.querySelector('.session-row')", { what: 'a chat in the list' });
       await page.ev("document.querySelector('.session-row').click()");
       await page.waitFor("document.querySelector('#voice-button') && !document.querySelector('#voice-button').hidden", { what: 'the voice button' });
@@ -63,17 +63,20 @@ for (const [name, viewport] of Object.entries(VIEWPORTS)) {
       await page.waitFor(`document.querySelector('[data-testid="voice-filler"]')?.textContent === 'Hold on one moment.'`, { what: 'the first filler', timeoutMs: 10_000 });
       await page.screenshot(path.join(os.tmpdir(), `voice-filler-${name}.png`));
       assert.equal(await page.ev("document.querySelector('[data-testid=\"voice-orb\"]').dataset.state"), 'thinking');
-      await page.waitFor(`/^Still on it (one|two)\\.$/.test(document.querySelector('[data-testid="voice-filler"]')?.textContent ?? '')`, { what: 'a filler at a mark', timeoutMs: 10_000 });
+      await page.waitFor(`/^Still on it (one|two)\\.$/.test(document.querySelector('[data-testid="voice-filler"]')?.textContent ?? '')`, { what: 'a filler after the wait', timeoutMs: 10_000 });
       assert.equal(await page.ev("document.querySelectorAll('.voice-filler').length"), 1, 'one filler line at a time');
 
       // The answer starts: the filler line goes away and the words are shown.
       await page.waitFor("document.querySelectorAll('.voice-reply .w').length > 0", { what: 'the reply words', timeoutMs: 40_000 });
       assert.equal(await page.ev("!!document.querySelector('.voice-filler')"), false, 'no filler line once the answer is shown');
       const marks = inputs().filter((text) => text.startsWith('Still on it'));
-      assert.ok(marks.length >= 1 && marks.length <= 2, `fillers requested for the marks: ${marks.join(', ')}`);
+      assert.ok(marks.length >= 1 && marks.length <= 2, `fillers requested after the wait: ${marks.join(', ')}`);
       assert.notEqual(marks[0], marks[1], 'the same filler is not repeated');
       await page.waitFor("document.querySelector('[data-testid=\"voice-orb\"]').dataset.state === 'idle'", { what: 'idle after speaking', timeoutMs: 40_000 });
       assert.equal(inputs().filter((text) => text === REPLY_TEXT).length, 1);
+      const bodies = gw.requests.filter((r) => r.path === '/audio/speech').map((r) => r.body);
+      assert.ok(bodies.filter((b) => b.input !== REPLY_TEXT).every((b) => b.speed === 0.9), 'the fillers are spoken at their own speed');
+      assert.equal(bodies.find((b) => b.input === REPLY_TEXT).speed, undefined, 'the answer keeps the voice\'s own pace');
       assert.equal(await page.ev('document.documentElement.scrollWidth <= window.innerWidth + 1'), true, 'no sideways scroll');
       assert.deepEqual(page.problems, [], 'no script errors or failed requests');
     });

@@ -110,17 +110,21 @@ A `speech` capability (text to speech, an OpenAI style `/audio/speech` endpoint)
 ```
 
 While the agent is still working, the voice mode speaks short filler phrases so the silence does not feel like a hang: one right
-away, then one at each of 10, 15, 20, 30, 60, 120, 150, 180, 240, 300 and 360 seconds (never the same phrase twice in a row, and none
-once the answer starts). The phrases are English by default. To change the words, the language or the marks, put a
-`voice-fillers.json` in the data directory; a file that is not valid is ignored and the defaults are used. Each tier is a list of
-marks (seconds) and the phrases to pick from at those marks:
+away, then more, each one after waiting 10, 15, 20, 30, 60, 120, 150, 180, 240, 300 and 360 seconds since the previous one finished
+(so the fillers come at about 10, 25, 45, 75, 135, 255 ... seconds into the wait), and the last wait repeats if the agent is still
+working. A phrase is never the same as the one before it, and none is spoken once the answer starts. The phrases are English by
+default. To change the words, the language or the waits, put a `voice-fillers.json` in the data directory; a file that is not valid
+is ignored and the defaults are used. Each tier is a list of waits (seconds) and the phrases to pick from for those waits. `speed`
+(optional, 0.5 to 2, default 1) is how fast the fillers are spoken, separate from the voice's default pace, which can be too quick
+for short phrases:
 
 ```json
 {
+  "speed": 1,
   "start": ["One moment.", "Let me check."],
   "waits": [
-    { "at": [10, 15, 20], "phrases": ["Still on it.", "Almost there."] },
-    { "at": [30, 60], "phrases": ["Still looking into it, hang on."] }
+    { "after": [10, 15, 20], "phrases": ["Still on it.", "Almost there."] },
+    { "after": [30, 60], "phrases": ["Still looking into it, hang on."] }
   ]
 }
 ```

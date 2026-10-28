@@ -23,7 +23,7 @@
 //
 // transcribe.transcribe({ audio: Buffer, mime, hint?, model?, timeoutMs? }) -> Promise<{ text }>
 //
-// speech.synthesize({ text, model?, voice?, format?, timeoutMs? }) -> Promise<{ audio: Buffer, mime }>   (text to speech)
+// speech.synthesize({ text, model?, voice?, speed?, format?, timeoutMs? }) -> Promise<{ audio: Buffer, mime }>   (text to speech)
 //
 // catalog: load(), listModels({ currentModel }), priceOf(modelId), currency(), usage?({ provider, currentModel })
 export {};

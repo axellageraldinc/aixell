@@ -3,15 +3,18 @@ import path from 'node:path';
 import { config } from './config.js';
 
 // Short phrases the voice chat speaks while the agent is still working, so the silence does not feel like a hang: one right
-// away (`start`), then one at each mark of `waits`, longer and more apologetic as the wait grows. The defaults are English;
-// put your own sets in data/voice-fillers.json (same shape) to change the words or the language.
+// away (`start`), then more, each after waiting a while since the previous one ended: `after` is that wait in seconds, and
+// the phrases get longer and more apologetic as the waits grow. When the waits run out the last one repeats. The defaults are English;
+// put your own sets in data/voice-fillers.json (same shape) to change the words or the language. `speed` is how fast they
+// are spoken, from 0.5 to 2 (a speech provider's default pace can be too fast for short phrases).
 export const DEFAULT_FILLERS = {
+  speed: 1,
   start: ['One moment.', 'Let me check.', 'Give me a second.', 'Hmm, let me think.', 'Okay, working on it.', 'Sure, one sec.'],
   waits: [
-    { at: [10, 15, 20], phrases: ['Still on it.', 'Almost there.', 'Still thinking.', 'Hang on a little longer.'] },
-    { at: [30, 60], phrases: ['Still looking into it, hang on.', 'This is taking a bit longer.', 'Still working on it, just a moment.'] },
-    { at: [120, 150, 180], phrases: ['Sorry, this is taking a while. Still on it.', 'Still running, thanks for waiting.', "That's a tricky one, still working on it."] },
-    { at: [240, 300, 360], phrases: ['Really sorry, this is taking very long. Still working.', "Not done yet, but I'm still on it.", 'Thanks for waiting, just a bit more.'] },
+    { after: [10, 15, 20], phrases: ['Still on it.', 'Almost there.', 'Still thinking.', 'Hang on a little longer.'] },
+    { after: [30, 60], phrases: ['Still looking into it, hang on.', 'This is taking a bit longer.', 'Still working on it, just a moment.'] },
+    { after: [120, 150, 180], phrases: ['Sorry, this is taking a while. Still on it.', 'Still running, thanks for waiting.', "That's a tricky one, still working on it."] },
+    { after: [240, 300, 360], phrases: ['Really sorry, this is taking very long. Still working.', "Not done yet, but I'm still on it.", 'Thanks for waiting, just a bit more.'] },
   ],
 };
 
@@ -32,12 +35,14 @@ export function validateFillers(raw) {
   const waits = [];
   for (const tier of raw.waits) {
     const list = phrases(tier?.phrases);
-    const at = tier?.at;
-    if (!list || !Array.isArray(at) || !at.length || at.length > MAX_LIST) return null;
-    if (!at.every((s) => Number.isInteger(s) && s >= 1 && s <= MAX_SECONDS)) return null;
-    waits.push({ at: [...at], phrases: list });
+    const after = tier?.after;
+    if (!list || !Array.isArray(after) || !after.length || after.length > MAX_LIST) return null;
+    if (!after.every((s) => Number.isInteger(s) && s >= 1 && s <= MAX_SECONDS)) return null;
+    waits.push({ after: [...after], phrases: list });
   }
-  return { start, waits };
+  const speed = raw.speed === undefined ? DEFAULT_FILLERS.speed : raw.speed;
+  if (typeof speed !== 'number' || !(speed >= 0.5 && speed <= 2)) return null;
+  return { speed, start, waits };
 }
 
 export function loadFillers(file = path.join(config.dataDir, 'voice-fillers.json')) {

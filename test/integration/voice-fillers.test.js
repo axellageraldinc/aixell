@@ -5,7 +5,7 @@ import { boot, AGENT_NAME } from '../helpers/boot.js';
 import { DEFAULT_FILLERS } from '../../src/voice-fillers.js';
 
 const URL_PATH = `/api/agents/${AGENT_NAME}/voice-fillers`;
-const mine = { start: ['Hold on.'], waits: [{ at: [5], phrases: ['Still here.'] }] };
+const mine = { start: ['Hold on.'], waits: [{ after: [5], phrases: ['Still here.'] }] };
 let plain, custom;
 before(async () => {
   plain = await boot();
@@ -19,5 +19,5 @@ test('fillers need a signed-in session', async () => {
 
 test('the defaults are served, and a custom file replaces them', async () => {
   assert.deepEqual((await (await plain.login()).get(URL_PATH)).data, DEFAULT_FILLERS);
-  assert.deepEqual((await (await custom.login()).get(URL_PATH)).data, mine);
+  assert.deepEqual((await (await custom.login()).get(URL_PATH)).data, { speed: 1, ...mine });
 });

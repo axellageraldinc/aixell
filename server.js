@@ -555,7 +555,8 @@ async function apiRoute(req, res, url, session) {
   if (section === 'chat' && method === 'POST') return streamChat(req, res, agent);
 
   if (section === 'speech' && !idOrRun && method === 'POST') {
-    const { audio, mime } = await synthesizeSpeech(agent, (await readJson(req, 16 * 1024)).text);
+    const body = await readJson(req, 16 * 1024);
+    const { audio, mime } = await synthesizeSpeech(agent, body.text, { speed: body.speed ?? undefined });
     res.writeHead(200, { 'Content-Type': mime, 'Content-Length': audio.length, 'Cache-Control': 'no-store' });
     return res.end(audio);
   }

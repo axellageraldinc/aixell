@@ -1,18 +1,16 @@
 // The short phrases the voice chat speaks while the agent is still working (the sets come from the server). Pure helpers:
 // which phrase next, when, and a cache of the synthesized audio so a phrase is requested once.
 
-// How long before a mark its phrase is requested, so the audio is ready when the mark comes (seconds).
-export const PREFETCH_LEAD = 8;
-
 // A random phrase that is not the one spoken just before, when there is a choice.
 export function pickFiller(list, last = '', random = Math.random) {
   const options = list.length > 1 ? list.filter((phrase) => phrase !== last) : list;
   return options[Math.floor(random() * options.length)] ?? '';
 }
 
-// The tiers flattened to one list of marks, earliest first: [{ at: 10, phrases }, { at: 15, phrases }, ...].
+// The tiers flattened to one list of waits, shortest first: [{ after: 10, phrases }, { after: 15, phrases }, ...]. `after` is how
+// long to wait since the previous filler ended; the list is followed in order and its last entry repeats.
 export function waitPlan(waits) {
-  return waits.flatMap((tier) => tier.at.map((at) => ({ at, phrases: tier.phrases }))).sort((a, b) => a.at - b.at);
+  return waits.flatMap((tier) => tier.after.map((after) => ({ after, phrases: tier.phrases }))).sort((a, b) => a.after - b.after);
 }
 
 // Audio bytes by phrase. `fetchBytes(text)` resolves to an ArrayBuffer or rejects; a failure is remembered as null (that
