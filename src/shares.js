@@ -63,7 +63,10 @@ function writeIndex(shares) {
   fs.renameSync(temporary, INDEX_FILE);
 }
 
-const publicView = (settings, share) => ({ token: share.token, agent: share.agent, sessionId: share.sessionId, title: share.title, createdAt: share.createdAt, updatedAt: share.updatedAt, expiresAt: share.expiresAt, url: settings ? `${settings.baseUrl}/${share.token}` : null });
+// The expiry the link was published with: stored, or worked out from its dates for links made before it was stored.
+const hoursOf = (share) => (share.ttlHours !== undefined ? share.ttlHours : share.expiresAt ? Math.round((share.expiresAt - (share.updatedAt ?? share.createdAt)) / 3_600_000) : null);
+
+const publicView = (settings, share) => ({ token: share.token, agent: share.agent, sessionId: share.sessionId, title: share.title, createdAt: share.createdAt, updatedAt: share.updatedAt, expiresAt: share.expiresAt, ttlHours: hoursOf(share), url: settings ? `${settings.baseUrl}/${share.token}` : null });
 
 export function listShares() {
   const settings = readSettings();
@@ -120,7 +123,7 @@ export async function publishShare({ agent, sessionId, title, body, ttlHours }) 
   const ttlSeconds = hours === null || hours === 0 ? 0 : Math.round(hours * 3600);
   const expiresAt = ttlSeconds ? now + ttlSeconds * 1000 : null;
   await kv(settings, 'PUT', token, { body: page, ttlSeconds });
-  const share = { token, agent, sessionId, title: String(title).slice(0, 300), createdAt: existing?.createdAt ?? now, updatedAt: now, expiresAt };
+  const share = { token, agent, sessionId, title: String(title).slice(0, 300), createdAt: existing?.createdAt ?? now, updatedAt: now, expiresAt, ttlHours: ttlSeconds ? hours : null };
   writeIndex([...index.filter((s) => s.token !== token && (!s.expiresAt || s.expiresAt > now)), share]);
   return publicView(settings, share);
 }

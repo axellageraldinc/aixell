@@ -73,6 +73,19 @@ export function snapshotHtml(messages) {
   return page.innerHTML.trim();
 }
 
+const LAST_KEY = 'aixell.share.expiry';
+const PRESETS = ['1', '24', '168', '720'];
+const rememberChoice = (choice, hours) => { try { localStorage.setItem(LAST_KEY, JSON.stringify({ choice, hours })); } catch { /* storage unavailable: nothing is remembered */ } };
+const recallChoice = () => { try { return JSON.parse(localStorage.getItem(LAST_KEY)) ?? null; } catch { return null; } };
+
+// What the expiry pills start on: the link's own expiry when it has one, else what was chosen last time, else one day.
+function initialExpiry(share) {
+  const last = share ? { choice: share.ttlHours == null ? 'never' : PRESETS.includes(String(share.ttlHours)) ? String(share.ttlHours) : 'custom', hours: share.ttlHours } : recallChoice();
+  const choice = last && (PRESETS.includes(last.choice) || last.choice === 'never' || last.choice === 'custom') ? last.choice : '24';
+  const hours = Number.isFinite(Number(last?.hours)) && Number(last.hours) >= 1 ? Math.round(Number(last.hours)) : 24;
+  return { choice, hours };
+}
+
 async function currentShare(sessionId) {
   try { return ((await api('/api/shares')).data ?? []).find((s) => s.sessionId === sessionId) ?? null; } catch { return null; }
 }
@@ -96,9 +109,10 @@ export async function openShareDialog(session) {
 
   const draw = (share) => {
     // One tap for the usual choices; "Custom" opens a free hours field.
-    let choice = '24';
-    const hours = h('input', { type: 'number', className: 'input input-sm share-hours', min: 1, max: 87600, step: 1, value: 24, 'aria-label': t('share.hours'), 'data-testid': 'share-hours' });
-    const custom = h('div', { className: 'dlg-row', hidden: true }, hours, h('span', { className: 'muted' }, t('share.hoursUnit')));
+    const start = initialExpiry(share);
+    let choice = start.choice;
+    const hours = h('input', { type: 'number', className: 'input input-sm share-hours', min: 1, max: 87600, step: 1, value: start.hours, 'aria-label': t('share.hours'), 'data-testid': 'share-hours' });
+    const custom = h('div', { className: 'dlg-row', hidden: choice !== 'custom' }, hours, h('span', { className: 'muted' }, t('share.hoursUnit')));
     const expiry = segmented({
       label: t('share.expiry'),
       options: [['1', t('share.opt.hour')], ['24', t('share.opt.day')], ['168', t('share.opt.week')], ['720', t('share.opt.month')], ['never', t('share.never')], ['custom', t('share.custom')]]
@@ -111,6 +125,7 @@ export async function openShareDialog(session) {
     publish.addEventListener('click', async () => {
       const ttlHours = choice === 'never' ? null : Number(choice === 'custom' ? hours.value : choice);
       if (ttlHours !== null && !(ttlHours >= 1 && ttlHours <= 87600)) return void (message.textContent = t('share.error.hours'));
+      rememberChoice(choice, ttlHours);
       publish.disabled = true;
       message.textContent = t('common.loading');
       try {

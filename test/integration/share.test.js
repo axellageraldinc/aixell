@@ -43,6 +43,9 @@ test('the expiry is per link: custom hours, none, or refused when out of range',
   assert.equal(never.status, 200);
   assert.doesNotMatch(calls.at(-1).url, /expiration_ttl/);
   assert.equal(never.data.expiresAt, null);
+  assert.equal(hours.data.ttlHours, 2);
+  assert.equal(never.data.ttlHours, null);
+  assert.equal((await me.get('/api/shares')).data.data.find((x) => x.token === hours.data.token).ttlHours, 2, 'the listing keeps the chosen expiry');
   assert.equal((await send('ttl-bad', 0)).data.error.code, 'bad_ttl');
   assert.equal((await send('ttl-bad', 'soon')).data.error.code, 'bad_ttl');
   for (const share of [hours.data, never.data]) await me.delete(`/api/shares/${share.token}`);

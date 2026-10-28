@@ -62,8 +62,15 @@ describe('share dialog', { skip }, () => {
         assert.doesNotMatch(puts.at(-1).url, /expiration_ttl/);
         if (SHOTS) await page.screenshot(`${SHOTS}/${name}-share-dialog-created.png`);
 
+        // reopening starts on the link's own expiry (never), not on the default
+        await page.ev("document.querySelector('[aria-label=Close], .dlg .ibtn').click()");
+        await page.ev("document.querySelector('#topbar-share').click()");
+        await page.waitFor("document.querySelector('[data-testid=share-link]')", { what: 'the reopened dialog' });
+        assert.deepEqual(await page.ev("[...document.querySelectorAll('.share-field .seg .btn.selected')].map((b) => b.dataset.testid)"), ['share-exp-never'], 'starts on the link\'s expiry');
         await page.ev("document.querySelector('[data-testid=share-stop]').click()");
         await page.waitFor("!document.querySelector('[data-testid=share-link]')", { what: 'the link to go' });
+        // a new link starts on the last choice made (never)
+        assert.deepEqual(await page.ev("[...document.querySelectorAll('.share-field .seg .btn.selected')].map((b) => b.dataset.testid)"), ['share-exp-never'], 'a new link starts on the last choice');
         assert.equal(puts.at(-1).method, 'DELETE');
       } finally {
         await page.close();
