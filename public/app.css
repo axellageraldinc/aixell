@@ -1303,3 +1303,6 @@ select.select option:checked { background: var(--bgColor-accent-muted); }
 .share-dlg .dlg-row { flex-wrap: wrap; align-items: center; gap: 8px; }
 .share-link { flex: 1 1 220px; min-width: 0; }
 .share-hours { width: 6rem; }
+.share-field { display: grid; gap: 8px; }
+.share-label { font-size: 13px; font-weight: 600; }
+.share-field .dlg-row { margin: 0; }

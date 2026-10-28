@@ -4,6 +4,7 @@ import { api } from './api.js';
 import { state } from './state.js';
 import { h } from './dom.js';
 import { icon } from './icons.js';
+import { segmented } from './segmented.js';
 import { groupTurns } from './turns.js';
 import { userNode, assistantNode, parseUserContent } from './message-nodes.js';
 import { allMessages, answerOf } from './export.js';
@@ -94,17 +95,21 @@ export async function openShareDialog(session) {
   document.body.append(overlay);
 
   const draw = (share) => {
-    const mode = h('select', { className: 'input input-sm', 'aria-label': t('share.expiry'), 'data-testid': 'share-expiry-mode' },
-      h('option', { value: 'hours' }, t('share.expireAfter')), h('option', { value: 'never' }, t('share.never')));
+    // One tap for the usual choices; "Custom" opens a free hours field.
+    let choice = '24';
     const hours = h('input', { type: 'number', className: 'input input-sm share-hours', min: 1, max: 87600, step: 1, value: 24, 'aria-label': t('share.hours'), 'data-testid': 'share-hours' });
-    const unit = h('span', { className: 'muted' }, t('share.hoursUnit'));
-    const sync = () => { hours.hidden = unit.hidden = mode.value === 'never'; };
-    mode.addEventListener('change', sync);
-    sync();
+    const custom = h('div', { className: 'dlg-row', hidden: true }, hours, h('span', { className: 'muted' }, t('share.hoursUnit')));
+    const expiry = segmented({
+      label: t('share.expiry'),
+      options: [['1', t('share.opt.hour')], ['24', t('share.opt.day')], ['168', t('share.opt.week')], ['720', t('share.opt.month')], ['never', t('share.never')], ['custom', t('share.custom')]]
+        .map(([value, label]) => ({ value, label, testid: `share-exp-${value}` })),
+      onSelect: (value) => { choice = value; expiry.set(choice); custom.hidden = choice !== 'custom'; },
+    });
+    expiry.set(choice);
     const message = h('p', { className: 'dlg-note', role: 'status' });
     const publish = h('button', { type: 'button', className: 'btn btn-primary btn-sm', 'data-testid': 'share-publish' }, share ? t('share.update') : t('share.create'));
     publish.addEventListener('click', async () => {
-      const ttlHours = mode.value === 'never' ? null : Number(hours.value);
+      const ttlHours = choice === 'never' ? null : Number(choice === 'custom' ? hours.value : choice);
       if (ttlHours !== null && !(ttlHours >= 1 && ttlHours <= 87600)) return void (message.textContent = t('share.error.hours'));
       publish.disabled = true;
       message.textContent = t('common.loading');
@@ -129,7 +134,7 @@ export async function openShareDialog(session) {
       rows.push(h('div', { className: 'dlg-row' }, link, copy), h('p', { className: 'dlg-note', 'data-testid': 'share-status' }, fmtExpiry(share)));
     }
     rows.push(
-      h('div', { className: 'dlg-row' }, h('span', {}, t('share.expiry')), mode, hours, unit),
+      h('div', { className: 'share-field' }, h('span', { className: 'share-label' }, t('share.expiry')), expiry.el, custom),
       h('div', { className: 'dlg-row' }, publish, h('span', { className: 'dlg-spacer' }), share ? h('button', { type: 'button', className: 'btn btn-error btn-ghost btn-sm', 'data-testid': 'share-stop', onClick: async () => {
         try { await api(`/api/shares/${encodeURIComponent(share.token)}`, { method: 'DELETE' }); notify(t('share.stopped')); draw(null); } catch (err) { message.textContent = err.message; }
       } }, t('share.stop')) : null),

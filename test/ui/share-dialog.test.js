@@ -39,14 +39,24 @@ describe('share dialog', { skip }, () => {
         await page.waitFor("document.querySelector('[data-testid=share-publish]')", { what: 'the dialog form' });
         if (SHOTS) await page.screenshot(`${SHOTS}/${name}-share-dialog.png`);
         assert.equal(await page.ev('document.documentElement.scrollWidth <= window.innerWidth'), true, 'no sideways scroll');
-        await page.ev("document.querySelector('[data-testid=share-hours]').value = '6'");
+        assert.equal(await page.ev("document.querySelector('[data-testid=share-hours]').closest('.dlg-row').hidden"), true, 'the hours field waits for Custom');
+        await page.ev("document.querySelector('[data-testid=share-exp-168]').click()");
         await page.ev("document.querySelector('[data-testid=share-publish]').click()");
         await page.waitFor("document.querySelector('[data-testid=share-link]')", { what: 'the link' });
-        assert.match(puts.at(-1).url, /expiration_ttl=21600/);
+        assert.match(puts.at(-1).url, /expiration_ttl=604800/, 'the 1 week preset');
+        await page.ev("document.querySelector('[data-testid=share-exp-custom]').click()");
+        await page.ev("document.querySelector('[data-testid=share-hours]').value = '6'");
+        assert.deepEqual(await page.ev("[...document.querySelectorAll('.share-field .seg .btn.selected')].map((b) => b.dataset.testid)"), ['share-exp-custom'], 'only Custom is selected');
+        await new Promise((resolve) => setTimeout(resolve, 400)); // let the button colours finish their transition
+        if (SHOTS) await page.screenshot(`${SHOTS}/${name}-share-custom.png`);
+        const before = puts.length;
+        await page.ev("document.querySelector('[data-testid=share-publish]').click()");
+        for (let i = 0; i < 50 && puts.length === before; i += 1) await new Promise((resolve) => setTimeout(resolve, 100));
+        assert.match(puts.at(-1).url, /expiration_ttl=21600/, 'custom hours');
         assert.match(await page.ev("document.querySelector('[data-testid=share-link]').value"), /^https:\/\/share\.example\.test\/[\w-]{43}$/);
 
-        await page.ev("(() => { const m = document.querySelector('[data-testid=share-expiry-mode]'); m.value = 'never'; m.dispatchEvent(new Event('change')); })()");
-        assert.equal(await page.ev("document.querySelector('[data-testid=share-hours]').hidden"), true);
+        await page.ev("document.querySelector('[data-testid=share-exp-never]').click()");
+        assert.equal(await page.ev("document.querySelector('[data-testid=share-hours]').closest('.dlg-row').hidden"), true);
         await page.ev("document.querySelector('[data-testid=share-publish]').click()");
         await page.waitFor("document.querySelector('[data-testid=share-status]')?.textContent.includes('Never')", { what: 'never expires' });
         assert.doesNotMatch(puts.at(-1).url, /expiration_ttl/);
