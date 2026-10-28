@@ -10,37 +10,10 @@ import { boot, totp, TOTP_SECRET, USERNAME, PASSWORD } from '../helpers/boot.js'
 import { REPLY_TEXT } from '../fake-hermes/server.js';
 import { startFakeGateway, GW_KEY } from '../helpers/fake-gateway.js';
 import { findChrome, launchBrowser, VIEWPORTS } from './cdp.js';
+import { FAKES, wav } from './voice-fakes.js';
 
 const bin = findChrome();
 const skip = bin ? false : 'no Chrome or Chromium found';
-
-// One second of a quiet 220 Hz tone as a 16-bit mono WAV.
-function wav(seconds = 1, rate = 22050) {
-  const n = Math.floor(seconds * rate);
-  const buf = Buffer.alloc(44 + n * 2);
-  buf.write('RIFF', 0); buf.writeUInt32LE(36 + n * 2, 4); buf.write('WAVEfmt ', 8); buf.writeUInt32LE(16, 16); buf.writeUInt16LE(1, 20);
-  buf.writeUInt16LE(1, 22); buf.writeUInt32LE(rate, 24); buf.writeUInt32LE(rate * 2, 28); buf.writeUInt16LE(2, 32); buf.writeUInt16LE(16, 34);
-  buf.write('data', 36); buf.writeUInt32LE(n * 2, 40);
-  for (let i = 0; i < n; i += 1) buf.writeInt16LE(Math.round(Math.sin((2 * Math.PI * 220 * i) / rate) * 3000), 44 + i * 2);
-  return buf;
-}
-
-const FAKES = `
-  navigator.mediaDevices.getUserMedia = async () => ({ getTracks: () => [{ stop() {} }] });
-  window.MediaRecorder = class {
-    static isTypeSupported() { return true; }
-    constructor() { this.mimeType = 'audio/webm'; this.state = 'inactive'; this.on = {}; }
-    set ondataavailable(fn) { this.on.dataavailable = fn; }
-    set onstop(fn) { this.on.stop = fn; }
-    start() { this.state = 'recording'; }
-    stop() { this.state = 'inactive'; this.on.dataavailable({ data: new Blob(['webm-bytes'], { type: 'audio/webm' }) }); this.on.stop(); }
-  };
-  const realFetch = window.fetch.bind(window);
-  window.fetch = (url, init) => {
-    if (/\\/uploads\\/[^/]+\\/transcribe$/.test(String(url))) return Promise.resolve(new Response('{"text":"halo"}', { status: 200, headers: { 'Content-Type': 'application/json' } }));
-    return realFetch(url, init);
-  };
-`;
 
 for (const [name, viewport] of Object.entries(VIEWPORTS)) {
   describe(`voice chat (${name} ${viewport.width}x${viewport.height})`, { skip }, () => {
@@ -111,8 +84,9 @@ for (const [name, viewport] of Object.entries(VIEWPORTS)) {
       await page.screenshot(path.join(os.tmpdir(), `voice-${name}-speaking.png`));
       await page.waitFor("document.querySelector('[data-testid=\"voice-orb\"]').dataset.state === 'idle'", { what: 'idle after speaking', timeoutMs: 30_000 });
       assert.equal(await page.ev("document.querySelectorAll('.voice-reply .w.said').length === document.querySelectorAll('.voice-reply .w').length"), true, 'every word was highlighted as said');
-      assert.equal(gw.count('POST /audio/speech'), 1);
-      assert.deepEqual(gw.requests.find((r) => r.path === '/audio/speech').body, { model: 'tts-test', input: REPLY_TEXT, voice: 'v1', response_format: 'mp3' });
+      const spoken = gw.requests.filter((r) => r.path === '/audio/speech' && r.body.input === REPLY_TEXT); // the filler phrases are separate requests
+      assert.equal(spoken.length, 1);
+      assert.deepEqual(spoken[0].body, { model: 'tts-test', input: REPLY_TEXT, voice: 'v1', response_format: 'mp3' });
       assert.equal(await page.ev('document.documentElement.scrollWidth <= window.innerWidth + 1'), true, 'no sideways scroll');
 
       // Dark theme: the overlay follows the app's tokens.

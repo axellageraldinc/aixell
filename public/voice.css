@@ -38,3 +38,4 @@
   .voice-body { padding-top: 24px; }
   .voice-reply { padding-bottom: 20vh; }
 }
+.voice-filler { font-size: 15px; line-height: 1.5; font-style: italic; color: var(--fgColor-muted); }

@@ -109,6 +109,22 @@ A `speech` capability (text to speech, an OpenAI style `/audio/speech` endpoint)
 { "capabilities": { "speech": { "provider": "gateway", "model": "tts-1", "voice": "alloy" } } }
 ```
 
+While the agent is still working, the voice mode speaks short filler phrases so the silence does not feel like a hang: one right
+away, then one at each of 10, 15, 20, 30, 60, 120, 150, 180, 240, 300 and 360 seconds (never the same phrase twice in a row, and none
+once the answer starts). The phrases are English by default. To change the words, the language or the marks, put a
+`voice-fillers.json` in the data directory; a file that is not valid is ignored and the defaults are used. Each tier is a list of
+marks (seconds) and the phrases to pick from at those marks:
+
+```json
+{
+  "start": ["One moment.", "Let me check."],
+  "waits": [
+    { "at": [10, 15, 20], "phrases": ["Still on it.", "Almost there."] },
+    { "at": [30, 60], "phrases": ["Still looking into it, hang on."] }
+  ]
+}
+```
+
 A `models` capability may add `routed: true` when the endpoint is a gateway that picks the real model per request (a
 preset in, a model out): the composer then shows the route instead of a model list. Such a gateway can also answer which
 model a conversation is on; declare where with `servedModelPath` (a path under `baseUrl` that accepts `?session=<id>` and

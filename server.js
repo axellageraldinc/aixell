@@ -20,6 +20,7 @@ import { serveMedia } from './src/media.js';
 import { buildAttachments, findUpload, storeUpload } from './src/uploads.js';
 import { transcribeUpload } from './src/transcribe.js';
 import { synthesizeSpeech } from './src/speech.js';
+import { loadFillers } from './src/voice-fillers.js';
 import { rewindLastTurn } from './src/rewind.js';
 import { publicKey as pushKey, saveSubscription, removeSubscription, hasSubscription, lastFinished, notifyRunDone, sendTest } from './src/push.js';
 import { listFacts, updateFact, removeFact, readNotes, writeNotes, listSkills, readSkill, trashSkill } from './src/knowledge.js';
@@ -558,6 +559,7 @@ async function apiRoute(req, res, url, session) {
     res.writeHead(200, { 'Content-Type': mime, 'Content-Length': audio.length, 'Cache-Control': 'no-store' });
     return res.end(audio);
   }
+  if (section === 'voice-fillers' && !idOrRun && method === 'GET') return sendJson(res, 200, loadFillers());
   if (section === 'uploads' && idOrRun && tail === 'transcribe' && method === 'POST') {
     return sendJson(res, 200, { text: await transcribeUpload(agent, idOrRun) });
   }

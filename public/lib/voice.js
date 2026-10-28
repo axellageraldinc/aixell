@@ -9,6 +9,7 @@ import { state, on, liveRun } from './state.js';
 import { sendMessage, stopRun } from './chat.js';
 import { t } from './i18n.js';
 import { createChunker, wordTimings, wordAt } from './voice-speech.js';
+import { pickFiller, waitPlan, createFillerCache, PREFETCH_LEAD } from './voice-fillers.js';
 import { voiceSupported } from './voice-support.js';
 
 const PICK = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg;codecs=opus'];
@@ -18,6 +19,20 @@ const MAX_RECORD_MS = 90_000;
 const CHUNK_GAP = 0.2;
 
 let active = null;
+
+// The synthesized filler phrases, one cache per agent, kept while the page lives so a phrase is requested once.
+const fillerCaches = new Map();
+function fillerCache(agent) {
+  if (!fillerCaches.has(agent)) {
+    fillerCaches.set(agent, createFillerCache(async (text) => {
+      const res = await fetchRaw(`${agentPath(agent)}/speech`, { method: 'POST', body: { text } });
+      if (!res.ok) throw await toApiError(res);
+      return res.arrayBuffer();
+    }));
+  }
+  return fillerCaches.get(agent);
+}
+const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const clock = (ms) => `${Math.floor(ms / 60_000)}:${String(Math.floor(ms / 1000) % 60).padStart(2, '0')}`;
 const extOf = (mime) => (mime.includes('mp4') ? 'm4a' : mime.includes('ogg') ? 'ogg' : 'webm');
@@ -54,6 +69,7 @@ export function openVoice() {
   const status = h('p', { className: 'voice-status', role: 'status', 'aria-live': 'polite', 'data-testid': 'voice-status' });
   const orb = h('button', { type: 'button', className: 'voice-orb', 'data-testid': 'voice-orb' });
   const hint = h('p', { className: 'voice-hint' });
+  const fillerLine = h('p', { className: 'voice-filler', 'data-testid': 'voice-filler' });
   const overlay = h(
     'div',
     { className: 'voice', role: 'dialog', 'aria-modal': 'true', 'aria-label': t('voice.label'), 'data-testid': 'voice-overlay' },
@@ -70,6 +86,8 @@ export function openVoice() {
   let timer = 0;
   let raf = 0;
   let lastTop = null;
+  let fillerSet = null; // the phrases to speak while the agent works, from the server
+  let closed = false;
   let shownIcon = '';
 
   function paint() {
@@ -149,19 +167,89 @@ export function openVoice() {
     }
   }
 
+  // ---- fillers: short phrases while the agent works
+  async function loadFillers() {
+    try {
+      fillerSet = await api(`${agentPath(state.agent)}/voice-fillers`);
+    } catch {
+      return; // no fillers: the voice chat works the same without them
+    }
+    const cache = fillerCache(state.agent);
+    for (const text of fillerSet.start) { // the first phrase has to be ready the moment a turn starts
+      if (closed) return;
+      await cache.get(text);
+    }
+  }
+
+  function startFillers(mine) {
+    const set = fillerSet;
+    if (!set) return;
+    const cache = fillerCache(state.agent);
+    const fill = mine.fill;
+    const ready = set.start.filter((text) => cache.ready(text));
+    fill.last = pickFiller(ready.length ? ready : set.start, fill.last);
+    fill.timers.push(setTimeout(() => playFiller(mine, fill.last, 1500), 0));
+    for (const { at, phrases } of waitPlan(set.waits)) {
+      fill.timers.push(setTimeout(() => { // ask for the audio ahead of the mark
+        const text = pickFiller(phrases, fill.last);
+        fill.last = text;
+        fill.picked.set(at, text);
+        cache.get(text);
+      }, Math.max(0, at - PREFETCH_LEAD) * 1000));
+      fill.timers.push(setTimeout(() => playFiller(mine, fill.picked.get(at) ?? pickFiller(phrases, fill.last), 800), at * 1000));
+    }
+  }
+
+  // No new fillers (the answer has started or the turn is over). A phrase that is being said finishes, unless `source`.
+  function stopFillers(mine, { source = false } = {}) {
+    if (!mine) return;
+    for (const timer of mine.fill.timers) clearTimeout(timer);
+    mine.fill.timers = [];
+    fillerLine.remove();
+    if (source && mine.fill.source) {
+      try { mine.fill.source.stop(); } catch { /* not started */ }
+      mine.fill.source = null;
+    }
+  }
+
+  async function playFiller(mine, text, waitMs) {
+    if (!text || turn !== mine || mine.gotText || audio.currentTime < mine.fill.endsAt) return;
+    const bytes = await Promise.race([fillerCache(state.agent).get(text), pause(waitMs).then(() => null)]);
+    if (!bytes || turn !== mine || mine.gotText) return;
+    let buffer;
+    try {
+      buffer = await audio.decodeAudioData(bytes.slice(0));
+    } catch {
+      return;
+    }
+    if (turn !== mine || mine.gotText || audio.currentTime < mine.fill.endsAt) return;
+    const source = audio.createBufferSource();
+    source.buffer = buffer;
+    source.connect(audio.destination);
+    const startAt = audio.currentTime + 0.05;
+    mine.fill.endsAt = startAt + buffer.duration;
+    mine.fill.source = source;
+    source.start(startAt);
+    fillerLine.textContent = text;
+    if (!fillerLine.isConnected) reply.prepend(fillerLine);
+  }
+
   // ---- the reply
   function ask(text) {
     if (liveRun(state.agent, state.sessionId)) { setMode('idle'); say(t('voice.busy')); return; }
     you.textContent = text;
     reply.replaceChildren();
-    turn = { ctx: null, chunker: createChunker(), gotText: false, ended: false, queue: [], pumping: false, scheduled: [], playing: 0, playEnd: 0, abort: new AbortController(), textOnly: false };
+    turn = { ctx: null, chunker: createChunker(), gotText: false, ended: false, queue: [], pumping: false, scheduled: [], playing: 0, playEnd: 0, abort: new AbortController(), textOnly: false,
+      fill: { timers: [], last: '', picked: new Map(), endsAt: 0, source: null } };
     setMode('thinking');
     const started = sendMessage({ text, attachments: [], spoken: true });
     turn.ctx = liveRun(state.agent, state.sessionId); // created synchronously by sendMessage
-    started.then((ok) => { if (ok === false && turn && !turn.gotText) { setMode('idle'); say(t('voice.busy')); turn = null; } });
+    startFillers(turn);
+    started.then((ok) => { if (ok === false && turn && !turn.gotText) { stopFillers(turn); setMode('idle'); say(t('voice.busy')); turn = null; } });
   }
 
   function feed(texts) {
+    if (texts.length) stopFillers(turn);
     for (const text of texts) {
       const words = text.split(/\s+/).filter(Boolean);
       const spans = words.map((word) => h('span', { className: 'w' }, word));
@@ -201,7 +289,7 @@ export function openVoice() {
 
   function schedule(mine, chunk, buffer) {
     if (turn !== mine) return;
-    const startAt = Math.max(audio.currentTime + 0.06, mine.playEnd + (mine.scheduled.length ? CHUNK_GAP : 0));
+    const startAt = Math.max(audio.currentTime + 0.06, mine.playEnd + (mine.scheduled.length ? CHUNK_GAP : 0), mine.fill.endsAt ? mine.fill.endsAt + 0.25 : 0);
     const source = audio.createBufferSource();
     source.buffer = buffer;
     source.connect(audio.destination);
@@ -222,6 +310,7 @@ export function openVoice() {
     const mine = turn;
     if (!mine || !mine.ended || mine.pumping || mine.queue.length || mine.playing > 0) return;
     for (const chunk of mine.scheduled) paintWords(chunk, chunk.spans.length);
+    stopFillers(mine);
     turn = null;
     if (mode !== 'idle') setMode('idle');
   }
@@ -257,6 +346,7 @@ export function openVoice() {
     turn = null;
     if (!mine) return;
     mine.abort.abort();
+    stopFillers(mine, { source: true });
     for (const chunk of mine.scheduled) {
       if (!chunk.source) continue;
       chunk.source.onended = null;
@@ -302,6 +392,7 @@ export function openVoice() {
   function shut() {
     document.removeEventListener('keydown', onKey, true);
     for (const off of offs) off();
+    closed = true;
     clearInterval(timer);
     if (rec) { rec.cancelled = true; if (rec.recorder.state === 'recording') rec.recorder.stop(); }
     work?.abort();
@@ -323,6 +414,7 @@ export function openVoice() {
   document.addEventListener('keydown', onKey, true);
 
   active = { shut };
+  loadFillers();
   paint();
   document.body.append(overlay);
   orb.focus();
