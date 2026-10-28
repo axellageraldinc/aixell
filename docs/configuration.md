@@ -109,6 +109,14 @@ A `speech` capability (text to speech, an OpenAI style `/audio/speech` endpoint)
 { "capabilities": { "speech": { "provider": "gateway", "model": "tts-1", "voice": "alloy" } } }
 ```
 
+The speech capability may also name a `chatModel`: the model (or, on a routing gateway, the preset) the agent is asked for on a
+voice turn instead of the one picked in the chat, for example a pool of fast models, because a spoken answer is waited for. Only
+voice turns use it:
+
+```json
+{ "capabilities": { "speech": { "provider": "gateway", "model": "tts-1", "voice": "alloy", "chatModel": "fast-voice" } } }
+```
+
 While the agent is still working, the voice mode speaks short filler phrases so the silence does not feel like a hang: one right
 away, then more, each one after waiting 10, 15, 20, 30, 60, 120, 150, 180, 240, 300 and 360 seconds since the previous one finished
 (so the fillers come at about 10, 25, 45, 75, 135, 255 ... seconds into the wait), and the last wait repeats if the agent is still

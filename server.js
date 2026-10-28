@@ -339,6 +339,12 @@ async function streamChat(req, res, agent) {
       payload[key] = body[key];
     }
   }
+  // A spoken turn asks for the speech capability's `chatModel` when one is set: a pool of fast models, because the answer is
+  // waiting to be heard. It replaces the model picked in the chat for that turn only.
+  if (body.spoken === true) {
+    const voiceModel = providersFor(agent).config('speech')?.chatModel;
+    if (typeof voiceModel === 'string' && MODEL_RE.test(voiceModel)) payload.model = voiceModel;
+  }
   const options = {};
   if (body.reasoningEffort != null) {
     if (!EFFORT_LEVELS.includes(body.reasoningEffort)) throw new HttpError(400, 'Invalid effort.', 'bad_effort');
