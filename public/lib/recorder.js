@@ -35,8 +35,16 @@ export function setMicMode(mode) {
 }
 let modeChanged = () => {};
 
+// Whether the mic should dictate (live speech recognition) rather than record, by the Settings mic mode. `canRecord` is whether
+// this browser can record audio at all (without it dictation is the only way); `broken` is a dictation that just failed.
+export function wantsDictation({ canRecord, broken = false }) {
+  if (!Speech || broken) return false;
+  const mode = getMicMode();
+  return mode === 'dictation' || (mode === 'auto' && touchPrimary.matches) || (!canRecord && mode !== 'record');
+}
+
 // The Settings "voice language" decides the recognition language; "auto" follows the browser.
-async function speechLang() {
+export async function speechLang() {
   try {
     const { sttLanguage } = await api(`${agentPath(state.agent)}/settings`);
     return LANGS[sttLanguage] ?? (navigator.language || 'en-US');
@@ -45,7 +53,7 @@ async function speechLang() {
 
 // Android Chrome sometimes reports each growing phrase as its own result ("hello", "hello there", "hello there friend").
 // A result that starts with the previous one replaces it, so the text is not repeated.
-function transcriptOf(results) {
+export function transcriptOf(results) {
   const parts = [];
   for (let i = 0; i < results.length; i += 1) {
     const text = results[i][0].transcript.trim();
@@ -68,11 +76,7 @@ export function initRecorder({ onRecorded, isBlocked, onChange = () => {} }) {
   let dictationBroken = false;
   let dictating = null;
   modeChanged = () => { dictationBroken = false; };
-  const dictation = () => {
-    if (!Speech || dictationBroken) return false;
-    const mode = getMicMode();
-    return mode === 'dictation' || (mode === 'auto' && touchPrimary.matches) || (!canRecord && mode !== 'record');
-  };
+  const dictation = () => wantsDictation({ canRecord, broken: dictationBroken });
   let recorder = null;
   let stream = null;
   let startedAt = 0;

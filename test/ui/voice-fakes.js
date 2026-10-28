@@ -11,6 +11,7 @@ export function wav(seconds = 1, rate = 22050) {
 }
 
 export const FAKES = `
+  try { localStorage.setItem('hermes-web:mic-mode', 'record'); } catch {}
   navigator.mediaDevices.getUserMedia = async () => ({ getTracks: () => [{ stop() {} }] });
   window.MediaRecorder = class {
     static isTypeSupported() { return true; }
@@ -27,3 +28,21 @@ export const FAKES = `
   };
 `;
 
+
+// A fake speech recogniser for the dictation mode: once started it says "halo dunia" (first "halo", then the whole phrase), and it
+// ends when stopped or aborted. Install it after FAKES, with the mic mode set to dictation.
+export const DICTATION_FAKES = `
+  try { localStorage.setItem('hermes-web:mic-mode', 'dictation'); } catch {}
+  window.__dictation = { started: 0 };
+  window.SpeechRecognition = window.webkitSpeechRecognition = class {
+    start() {
+      window.__dictation.started += 1;
+      this.timers = [
+        setTimeout(() => this.onresult?.({ results: [[{ transcript: 'halo' }]] }), 150),
+        setTimeout(() => this.onresult?.({ results: [[{ transcript: 'halo dunia' }]] }), 300),
+      ];
+    }
+    stop() { this.timers?.forEach(clearTimeout); setTimeout(() => this.onend?.(), 20); }
+    abort() { this.timers?.forEach(clearTimeout); setTimeout(() => this.onend?.(), 20); }
+  };
+`;

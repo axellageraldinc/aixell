@@ -578,7 +578,7 @@ export default {
   'settings.voice.language.title': 'Speech language (voice notes and dictation)',
   'settings.voice.mic.dictation': 'Dictation',
   'settings.voice.mic.record': 'Record',
-  'settings.voice.mode.hint': 'Dictation: speech becomes text in the composer (needs internet). Record: sent as a voice note and then transcribed. Auto: dictation on touch screens, record on desktop.',
+  'settings.voice.mode.hint': 'Dictation: speech becomes text as you speak, in the composer and in voice chat (needs internet). Record: the audio is transcribed by the server, as a voice note or a voice chat turn. Auto: dictation on touch screens, record on desktop.',
   'settings.voice.mode.title': 'Mic mode',
 
   // share
@@ -662,6 +662,7 @@ export default {
   // voice
   'voice.busy': 'Wait for the current reply to finish.',
   'voice.close': 'Close voice chat',
+  'voice.dictationFailed': 'Dictation is not available right now. Tap to record instead.',
   'voice.hint.idle': 'Tap to talk',
   'voice.hint.recording': 'Tap to send',
   'voice.hint.speaking': 'Tap to stop',

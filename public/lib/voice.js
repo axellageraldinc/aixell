@@ -11,6 +11,8 @@ import { t } from './i18n.js';
 import { createChunker, wordTimings, wordAt } from './voice-speech.js';
 import { pickFiller, waitPlan, createFillerCache } from './voice-fillers.js';
 import { voiceSupported } from './voice-support.js';
+import { wantsDictation, speechLang } from './recorder.js';
+import { listen } from './dictation.js';
 
 const PICK = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg;codecs=opus'];
 const MIN_RECORD_MS = 700;
@@ -83,6 +85,8 @@ export function openVoice() {
   let note = ''; // an error or a notice shown instead of the state's own status line
   let turn = null; // the reply being spoken
   let rec = null; // the recording in progress
+  let dict = null; // the dictation in progress (the Settings mic mode picks dictation or recording, as for the composer's mic)
+  let dictationBroken = false; // a dictation failed in this overlay: record from now on
   let work = null; // AbortController of the upload and transcription
   let timer = 0;
   let raf = 0;
@@ -99,7 +103,8 @@ export function openVoice() {
       orb.replaceChildren(icon(shownIcon, 30));
     }
     orb.setAttribute('aria-label', HINT[mode]());
-    hint.textContent = mode === 'recording' && rec ? `${HINT.recording()} · ${clock(Date.now() - rec.startedAt)}` : HINT[mode]();
+    const live = rec ?? dict;
+    hint.textContent = mode === 'recording' && live ? `${HINT.recording()} · ${clock(Date.now() - live.startedAt)}` : HINT[mode]();
     status.textContent = note || STATUS[mode]();
     status.classList.toggle('is-error', Boolean(note));
   }
@@ -116,6 +121,7 @@ export function openVoice() {
   async function startRecording() {
     if (liveRun(state.agent, state.sessionId)) { say(t('voice.busy')); return; }
     note = '';
+    if (wantsDictation({ canRecord: true, broken: dictationBroken })) return startDictating();
     let stream;
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -146,7 +152,35 @@ export function openVoice() {
     }, 250);
   }
 
+  // Dictation: the words appear as they are said and go to the agent when it ends (a tap, or a pause), with no upload.
+  async function startDictating() {
+    // Shown as listening at once, so a second tap while the language loads stops it instead of starting another.
+    let stopped = false;
+    const pending = { startedAt: Date.now(), stop() { stopped = true; }, cancel() { stopped = true; } };
+    dict = pending;
+    you.textContent = '';
+    setMode('recording');
+    timer = setInterval(paint, 250);
+    const lang = await speechLang();
+    if (closed || stopped || dict !== pending) { clearInterval(timer); if (dict === pending) dict = null; if (!closed) setMode('idle'); return; }
+    dict = listen({
+      lang,
+      maxMs: MAX_RECORD_MS,
+      onText: (text) => { you.textContent = text; },
+      onEnd: ({ text, failure }) => {
+        clearInterval(timer);
+        dict = null;
+        if (failure && failure !== 'audio-capture') { dictationBroken = true; setMode('idle'); say(t('voice.dictationFailed')); return; }
+        if (failure) { setMode('idle'); say(t('voice.micDenied')); return; }
+        const said = text.trim();
+        if (!said) { setMode('idle'); say(t('voice.noSpeech')); return; }
+        ask(said);
+      },
+    });
+  }
+
   function stopRecording() {
+    if (dict) { dict.stop(); return; }
     if (rec?.recorder.state === 'recording') rec.recorder.stop();
   }
 
@@ -403,6 +437,7 @@ export function openVoice() {
     for (const off of offs) off();
     closed = true;
     clearInterval(timer);
+    dict?.cancel();
     if (rec) { rec.cancelled = true; if (rec.recorder.state === 'recording') rec.recorder.stop(); }
     work?.abort();
     hush();
