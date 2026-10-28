@@ -113,6 +113,15 @@ export async function launchBrowser(bin, { viewport = VIEWPORTS.desktop } = {}) 
       await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: b.x, y: b.y, button: 'left', clickCount: 1 });
       await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: b.x, y: b.y, button: 'left', clickCount: 1 });
     },
+    // A click that takes `holdMs` between the press and the release, like a finger: anything redrawn in between is felt.
+    async clickHold(selector, holdMs) {
+      await page.waitFor(`!!document.querySelector(${JSON.stringify(selector)})`, { what: `element ${selector}` });
+      const b = await page.box(selector);
+      if (!b) throw new Error(`${selector} has no box`);
+      await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: b.x, y: b.y, button: 'left', clickCount: 1 });
+      await sleep(holdMs);
+      await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: b.x, y: b.y, button: 'left', clickCount: 1 });
+    },
     // Like click, for the first element that is actually on screen (the same control can exist in a hidden phone and desktop layout).
     async clickVisible(selector) {
       await page.waitFor(`[...document.querySelectorAll(${JSON.stringify(selector)})].some((e) => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; })`, { what: `visible ${selector}` });

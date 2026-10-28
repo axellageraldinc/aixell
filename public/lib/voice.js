@@ -70,10 +70,15 @@ export function openVoice() {
   let timer = 0;
   let raf = 0;
   let lastTop = null;
+  let shownIcon = '';
 
   function paint() {
     orb.dataset.state = mode;
-    orb.replaceChildren(icon(ORB_ICON[mode], 30));
+    // Redrawn only when it changes: replacing the icon under a finger that is pressing the orb would lose the tap.
+    if (shownIcon !== ORB_ICON[mode]) {
+      shownIcon = ORB_ICON[mode];
+      orb.replaceChildren(icon(shownIcon, 30));
+    }
     orb.setAttribute('aria-label', HINT[mode]());
     hint.textContent = mode === 'recording' && rec ? `${HINT.recording()} · ${clock(Date.now() - rec.startedAt)}` : HINT[mode]();
     status.textContent = note || STATUS[mode]();

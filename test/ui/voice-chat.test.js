@@ -69,6 +69,21 @@ for (const [name, viewport] of Object.entries(VIEWPORTS)) {
       await gw?.close();
     });
 
+    test('the stop tap works even when the timer redraws the screen between the press and the release', async () => {
+      await page.waitFor("document.querySelector('.session-row')", { what: 'a chat in the list' });
+      await page.ev("document.querySelector('.session-row').click()");
+      await page.waitFor("document.querySelector('#voice-button') && !document.querySelector('#voice-button').hidden", { what: 'the voice button' });
+      await page.clickVisible('[data-testid="voice-button"]');
+      await page.waitFor("!!document.querySelector('[data-testid=\"voice-overlay\"]')", { what: 'the overlay' });
+      await page.clickVisible('[data-testid="voice-orb"]');
+      await page.waitFor("document.querySelector('[data-testid=\"voice-orb\"]').dataset.state === 'recording'", { what: 'recording' });
+      await new Promise((resolve) => setTimeout(resolve, 900));
+      await page.clickHold('[data-testid="voice-orb"]', 700); // the timer ticks every 250 ms: several redraws happen while the button is down
+      await page.waitFor("document.querySelector('[data-testid=\"voice-orb\"]').dataset.state !== 'recording'", { what: 'the recording stopped', timeoutMs: 5000 });
+      await page.ev("document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))");
+      await page.waitFor("!document.querySelector('[data-testid=\"voice-overlay\"]')", { what: 'the overlay closed' });
+    });
+
     test('talk, get the reply spoken with highlighted words, and end idle', async () => {
       await page.waitFor("document.querySelector('.session-row')", { what: 'a chat in the list' });
       await page.ev("document.querySelector('.session-row').click()");
