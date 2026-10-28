@@ -1,0 +1,40 @@
+/* Voice chat overlay: a full-screen page over the chat. Flat colours from the app's theme tokens, no glow. */
+.voice { position: fixed; inset: 0; z-index: 80; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; background: var(--bgColor-default); color: var(--fgColor-default); }
+.voice-top { display: flex; align-items: center; justify-content: space-between; height: 48px; padding: env(safe-area-inset-top) 8px 0 16px; box-sizing: content-box; }
+.voice-title { font-size: 13px; font-weight: 600; color: var(--fgColor-muted); }
+
+.voice-body { display: flex; flex-direction: column; gap: 20px; overflow-y: auto; padding: 8px 20px 24px; width: min(100%, 44rem); margin-inline: auto; box-sizing: border-box; overscroll-behavior: contain; }
+.voice-you { font-size: 14px; line-height: 1.5; color: var(--fgColor-muted); }
+.voice-you:empty { display: none; }
+.voice-reply { display: grid; gap: 16px; padding-bottom: 28vh; }
+.voice-chunk { font-size: clamp(20px, 4.6vw, 28px); line-height: 1.5; font-weight: 600; overflow-wrap: anywhere; }
+
+/* Karaoke: words still to come are muted, the ones said are solid, the one being said has a marker behind it. */
+.voice-chunk .w { color: var(--fgColor-muted); opacity: 0.7; transition: color 0.12s, opacity 0.12s, background-color 0.12s; border-radius: 6px; -webkit-box-decoration-break: clone; box-decoration-break: clone; padding: 0 2px; margin: 0 -2px; }
+.voice-chunk .w.said { color: var(--fgColor-default); opacity: 1; }
+.voice-chunk .w.now { color: var(--fgColor-default); opacity: 1; background: color-mix(in oklab, var(--fgColor-accent) 24%, transparent); }
+
+.voice-foot { display: grid; justify-items: center; gap: 10px; padding: 12px 16px calc(24px + env(safe-area-inset-bottom)); }
+.voice-status { min-height: 20px; font-size: 13px; color: var(--fgColor-muted); text-align: center; }
+.voice-status.is-error { color: var(--fgColor-danger); }
+.voice-hint { font-size: 12px; color: var(--fgColor-muted); font-variant-numeric: tabular-nums; }
+
+.voice-orb { position: relative; display: grid; place-items: center; width: 84px; height: 84px; padding: 0; border: 0; border-radius: 50%; background: var(--fgColor-default); color: var(--bgColor-default); transition: transform 0.1s, background-color 0.15s; }
+.voice-orb:active { transform: scale(0.96); }
+.voice-orb[data-state="recording"] { background: var(--fgColor-danger); color: #fff; }
+.voice-orb[data-state="speaking"], .voice-orb[data-state="thinking"], .voice-orb[data-state="transcribing"] { background: var(--bgColor-neutral-muted); color: var(--fgColor-default); }
+/* A ring that breathes while it listens or is busy. */
+.voice-orb::after { content: ""; position: absolute; inset: -6px; border-radius: 50%; border: 2px solid transparent; pointer-events: none; }
+.voice-orb[data-state="recording"]::after { border-color: var(--fgColor-danger); animation: voice-ring 1.4s ease-out infinite; }
+.voice-orb[data-state="thinking"]::after, .voice-orb[data-state="transcribing"]::after { border-color: var(--fgColor-muted); animation: voice-ring 1.8s ease-in-out infinite; }
+.voice-orb[data-state="speaking"]::after { border-color: var(--fgColor-accent); animation: voice-ring 1.6s ease-out infinite; }
+@keyframes voice-ring { from { transform: scale(0.92); opacity: 0.9; } to { transform: scale(1.18); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .voice-orb::after { animation: none !important; border-color: currentColor; opacity: 0.35; }
+  .voice-chunk .w { transition: none; }
+}
+
+@media (min-width: 900px) {
+  .voice-body { padding-top: 24px; }
+  .voice-reply { padding-bottom: 20vh; }
+}

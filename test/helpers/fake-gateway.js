@@ -4,7 +4,7 @@
 //   const gw = await startFakeGateway({ extras: true });
 //   gw.url            // http://127.0.0.1:PORT/v1
 //   gw.requests       // [{ method, path, headers, body }]  every request received
-//   gw.handlers[path] // override: (req) => ({ status, body, headers }) for 'POST /chat/completions' style keys
+//   gw.handlers[path] // override: (req) => ({ status, body, headers }) for 'POST /chat/completions' style keys (`raw` replaces the JSON body)
 //   await gw.close()
 import http from 'node:http';
 
@@ -30,6 +30,7 @@ export async function startFakeGateway({ extras = false, key = GW_KEY } = {}) {
     },
     'POST /images/generations': () => json(200, { data: [{ b64_json: PNG.toString('base64') }] }),
     'POST /audio/transcriptions': () => json(200, { text: ' hello world ' }),
+    'POST /audio/speech': () => ({ status: 200, headers: { 'Content-Type': 'audio/mpeg' }, raw: Buffer.from('ID3 fake mp3') }),
   };
   if (extras) {
     Object.assign(defaults, {
@@ -57,7 +58,7 @@ export async function startFakeGateway({ extras = false, key = GW_KEY } = {}) {
       requests.push(entry);
       const send = (r) => {
         res.writeHead(r.status, { 'Content-Type': 'application/json', ...r.headers });
-        res.end(JSON.stringify(r.body));
+        res.end(r.raw ?? JSON.stringify(r.body));
       };
       if (req.headers.authorization !== `Bearer ${key}`) return send(json(401, { error: { message: 'bad key' } }));
       const handler = handlers[`${req.method} ${route}`] ?? defaults[`${req.method} ${route}`];

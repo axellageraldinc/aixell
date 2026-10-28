@@ -1,9 +1,9 @@
 // The provider contracts (JSDoc only). A provider INSTANCE is built from one entry of the `providers` config and may
 // implement any of the capability objects below. The registry (registry.js) binds capabilities to instances.
 //
-// Capability names (config key under `capabilities`): writer, classifier, images, socialSearch, transcription, models.
+// Capability names (config key under `capabilities`): writer, classifier, images, socialSearch, transcription, speech, models.
 //
-// ProviderInstance: { id, type, text?, classify?, image?, search?, transcribe?, catalog? }
+// ProviderInstance: { id, type, text?, classify?, image?, search?, transcribe?, speech?, catalog? }
 //
 // text.chat({ model, messages: {role, content}[], maxTokens?, temperature?, reasoningEffort?, timeoutMs? })
 //   -> Promise<{ text }>. Throws ProviderError (status, retryAfter) when the service refuses.
@@ -22,6 +22,8 @@
 //   -> Promise<{ answer, citations, costMicro, raw }>; also search.label, search.endpoint, search.pricing
 //
 // transcribe.transcribe({ audio: Buffer, mime, hint?, model?, timeoutMs? }) -> Promise<{ text }>
+//
+// speech.synthesize({ text, model?, voice?, format?, timeoutMs? }) -> Promise<{ audio: Buffer, mime }>   (text to speech)
 //
 // catalog: load(), listModels({ currentModel }), priceOf(modelId), currency(), usage?({ provider, currentModel })
 export {};

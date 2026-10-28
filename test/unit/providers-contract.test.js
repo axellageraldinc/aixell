@@ -31,6 +31,7 @@ function contract(name, make, { extras }) {
       await assert.rejects(p.text.chat({ model: 'm', messages: [] }), (e) => e.kind === 'nokey' && e.message === 'no key');
       await assert.rejects(p.image.generate({ prompt: 'x', model: 'm' }), (e) => e.kind === 'nokey');
       await assert.rejects(p.transcribe.transcribe({ audio: Buffer.from('a'), model: 'm' }), (e) => e.kind === 'nokey');
+      await assert.rejects(p.speech.synthesize({ text: 'a', model: 'm' }), (e) => e.kind === 'nokey');
       assert.equal(gw.requests.length, 0);
     } finally { await gw.close(); }
   });
@@ -43,6 +44,20 @@ function contract(name, make, { extras }) {
       assert.deepEqual(gw.requests.find((r) => r.path === '/images/generations').body, { model: 'draw-1', prompt: 'a cat', n: 1, size: '1024x1024' });
       gw.handlers['POST /images/generations'] = () => ({ status: 429, body: { error: { message: 'too many requests' } } });
       await assert.rejects(make(gw).image.generate({ prompt: 'x', model: 'draw-1' }), (e) => e.status === 429 && /too many/.test(e.detail) && e.message === 'draw-1 answered 429.');
+    } finally { await gw.close(); }
+  });
+
+  test(`${name}: speech posts the text, model and voice and returns the audio with its type`, async () => {
+    const gw = await startFakeGateway({ extras });
+    try {
+      const out = await make(gw).speech.synthesize({ text: 'Halo dunia', model: 'tts-x', voice: 'v1', format: 'mp3' });
+      assert.equal(out.audio.toString(), 'ID3 fake mp3');
+      assert.equal(out.mime, 'audio/mpeg');
+      assert.deepEqual(gw.requests.find((r) => r.path === '/audio/speech').body, { model: 'tts-x', input: 'Halo dunia', voice: 'v1', response_format: 'mp3' });
+      gw.handlers['POST /audio/speech'] = () => ({ status: 200, headers: { 'Content-Type': 'audio/mpeg' }, raw: Buffer.alloc(0) });
+      await assert.rejects(make(gw).speech.synthesize({ text: 'a', model: 'm' }), (e) => e.kind === 'empty');
+      gw.handlers['POST /audio/speech'] = () => ({ status: 503, body: {} });
+      await assert.rejects(make(gw).speech.synthesize({ text: 'a', model: 'm' }), (e) => e.status === 503 && e.message === 'Speech failed (503).');
     } finally { await gw.close(); }
   });
 
@@ -155,7 +170,7 @@ test('mock-gateway: search sends the filter in the gateway format and returns an
 test('null: implements no capability', () => {
   const p = new NullProvider({ id: 'none' });
   assert.equal(p.type, 'null');
-  for (const cap of ['text', 'classify', 'image', 'search', 'transcribe', 'catalog']) assert.equal(p[cap], undefined);
+  for (const cap of ['text', 'classify', 'image', 'search', 'transcribe', 'speech', 'catalog']) assert.equal(p[cap], undefined);
 });
 
 test('llm-classifier over the openai-compatible provider: one JSON-mode call answers typed tasks', async () => {
@@ -184,7 +199,7 @@ test('null: bound to every capability, the registry resolves them all to null', 
   const { buildRegistry } = await import('../../src/providers/registry.js');
   const reg = buildRegistry({
     providers: { none: { type: 'null' } },
-    capabilities: { writer: { provider: 'none' }, classifier: { provider: 'none' }, images: { provider: 'none' }, socialSearch: { provider: 'none' }, transcription: { provider: 'none' }, models: { provider: 'none' } },
+    capabilities: { writer: { provider: 'none' }, classifier: { provider: 'none' }, images: { provider: 'none' }, socialSearch: { provider: 'none' }, transcription: { provider: 'none' }, speech: { provider: 'none' }, models: { provider: 'none' } },
   }, {}, { null: (id) => new NullProvider({ id }) });
   for (const cap of ['writer', 'classifier', 'images', 'socialSearch', 'transcription', 'models']) assert.equal(reg.get(cap), null, cap);
   assert.equal(reg.flags().usage, false);

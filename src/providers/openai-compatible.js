@@ -1,6 +1,6 @@
 import { ProviderError, noKey, retryAfterOf } from './errors.js';
 
-// Any server that speaks the OpenAI REST dialect: /chat/completions, /images/generations, /audio/transcriptions, /models.
+// Any server that speaks the OpenAI REST dialect: /chat/completions, /images/generations, /audio/transcriptions, /audio/speech, /models.
 // No search, no classifier of its own (llm-classifier.js builds one from the chat endpoint) and no usage/balance.
 const CATALOG_TTL_MS = 10 * 60_000;
 const number = (value) => (typeof value === 'number' && Number.isFinite(value) ? value : null);
@@ -18,6 +18,7 @@ export class OpenAICompatible {
     this.text = { chat: (req) => this.#chat(req) };
     this.image = { generate: (req) => this.#generate(req) };
     this.transcribe = { transcribe: (req) => this.#transcribe(req) };
+    this.speech = { synthesize: (req) => this.#synthesize(req) };
     this.catalog = new CatalogBase(this);
   }
 
@@ -79,6 +80,26 @@ export class OpenAICompatible {
     const text = String((await res.json())?.text ?? '').trim();
     if (!text) throw new ProviderError('No speech was recognised.', { kind: 'empty' });
     return { text };
+  }
+
+  async #synthesize({ text, model, voice, format = 'mp3', timeoutMs = 120_000 }) {
+    const key = this.key();
+    if (!key) throw noKey('Speech needs an API key for the speech provider.');
+    let res;
+    try {
+      res = await fetch(`${this.baseUrl}/audio/speech`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json', 'User-Agent': this.userAgent },
+        body: JSON.stringify({ model, input: text, ...(voice ? { voice } : {}), response_format: format }),
+        signal: AbortSignal.timeout(timeoutMs),
+      });
+    } catch {
+      throw new ProviderError('Speech timed out.', { kind: 'timeout' });
+    }
+    if (!res.ok) throw new ProviderError(`Speech failed (${res.status}).`, { status: res.status });
+    const audio = Buffer.from(await res.arrayBuffer());
+    if (!audio.length) throw new ProviderError('The speech provider returned no audio.', { kind: 'empty' });
+    return { audio, mime: res.headers.get('content-type') || 'audio/mpeg' };
   }
 }
 

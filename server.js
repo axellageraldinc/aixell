@@ -19,6 +19,7 @@ import { getUsage } from './src/usage.js';
 import { serveMedia } from './src/media.js';
 import { buildAttachments, findUpload, storeUpload } from './src/uploads.js';
 import { transcribeUpload } from './src/transcribe.js';
+import { synthesizeSpeech } from './src/speech.js';
 import { rewindLastTurn } from './src/rewind.js';
 import { publicKey as pushKey, saveSubscription, removeSubscription, hasSubscription, lastFinished, notifyRunDone, sendTest } from './src/push.js';
 import { listFacts, updateFact, removeFact, readNotes, writeNotes, listSkills, readSkill, trashSkill } from './src/knowledge.js';
@@ -546,6 +547,11 @@ async function apiRoute(req, res, url, session) {
   if (section === 'usage' && method === 'GET') return sendJson(res, 200, await getUsage(agent, clamp(url.searchParams.get('days'), 1, 90, 30)));
   if (section === 'chat' && method === 'POST') return streamChat(req, res, agent);
 
+  if (section === 'speech' && !idOrRun && method === 'POST') {
+    const { audio, mime } = await synthesizeSpeech(agent, (await readJson(req, 16 * 1024)).text);
+    res.writeHead(200, { 'Content-Type': mime, 'Content-Length': audio.length, 'Cache-Control': 'no-store' });
+    return res.end(audio);
+  }
   if (section === 'uploads' && idOrRun && tail === 'transcribe' && method === 'POST') {
     return sendJson(res, 200, { text: await transcribeUpload(agent, idOrRun) });
   }

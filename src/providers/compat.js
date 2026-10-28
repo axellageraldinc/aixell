@@ -38,6 +38,7 @@ export function gatewayCapabilities(provider) {
     socialSearch: { provider },
     images: { provider, chain: IMAGE_CHAIN, sceneModel: 'deepseek-v4-1-flash' },
     transcription: { provider, model: 'whisper-large-v3-turbo' },
+    speech: { provider, model: 'tts-1', voice: 'alloy' },
     models: { provider },
   };
 }

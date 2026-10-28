@@ -95,12 +95,19 @@ These keep working exactly as before and override the file:
 
 Providers are read from `data/providers.json` (not from `config.json`): `{ "providers": {...}, "capabilities": {...} }`.
 Each provider has an id, a `type` and its own settings; secrets are references (see above). A capability
-(`writer`, `classifier`, `images`, `socialSearch`, `transcription`, `models`) names the provider that serves it. Without the file
+(`writer`, `classifier`, `images`, `socialSearch`, `transcription`, `speech`, `models`) names the provider that serves it. Without the file
 no capability is available and the Feed falls back to keyword heuristics.
 
 Built-in types: `openai-compatible`, `x-api`, `null` (and `mock-gateway`, a fake used by the offline sandbox and the tests).
 More types can be dropped in as `.js` files under `data/providers/`; they load once, at server start, and a file that fails to
 load is skipped with a warning. The contract is in `src/providers/dropins.js`.
+
+A `speech` capability (text to speech, an OpenAI style `/audio/speech` endpoint) takes the `model` to ask for and an optional
+`voice`; the chat's voice mode needs it and is hidden without it:
+
+```json
+{ "capabilities": { "speech": { "provider": "gateway", "model": "tts-1", "voice": "alloy" } } }
+```
 
 A `models` capability may add `routed: true` when the endpoint is a gateway that picks the real model per request (a
 preset in, a model out): the composer then shows the route instead of a model list. Such a gateway can also answer which

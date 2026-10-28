@@ -201,6 +201,7 @@ document.addEventListener('visibilitychange', () => {
 
 async function conclude(ctx) {
   const { run } = ctx;
+  emit('reply:end', { ctx });
   const from = ctx.segStartTs ?? run.startTs;
   const total = run.endTs != null && from != null ? run.endTs - from : null;
   ensureMessage(ctx);
@@ -252,6 +253,7 @@ function handleEvent(event, data, ctx) {
       splitForSteer(ctx, ts);
       ensureMessage(ctx);
       ctx.message.appendDelta(data.delta ?? '', ts);
+      emit('reply:delta', { ctx, delta: data.delta ?? '' });
       // The first answer means the gateway has served this conversation: ask which real model it pinned.
       if (!ctx.servedAsked) { ctx.servedAsked = true; loadServedModel(ctx.run.sessionId ?? state.sessionId); }
       break;
@@ -265,6 +267,7 @@ function handleEvent(event, data, ctx) {
       emit('run:step');
       ensureMessage(ctx);
       if (typeof data.content === 'string') ctx.message.setText(data.content);
+      emit('reply:completed', { ctx, content: data.content });
       loadServedModel(ctx.run.sessionId ?? state.sessionId);
       if (data.interrupted) { ctx.stopped = true; ctx.message.setNote(t('chat.stopped')); }
       break;

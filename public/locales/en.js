@@ -659,4 +659,22 @@ export default {
   'usage.tab.stats': '30-day stats',
   'usage.title': 'Usage',
 
+  // voice
+  'voice.busy': 'Wait for the current reply to finish.',
+  'voice.close': 'Close voice chat',
+  'voice.hint.idle': 'Tap to talk',
+  'voice.hint.recording': 'Tap to send',
+  'voice.hint.speaking': 'Tap to stop',
+  'voice.hint.working': 'Tap to cancel',
+  'voice.label': 'Voice chat',
+  'voice.loadFailed': 'Could not load the voice chat.',
+  'voice.micDenied': 'Microphone access was blocked. Allow it in the browser settings.',
+  'voice.noSpeech': "I didn't catch that. Try again.",
+  'voice.replyFailed': 'The reply failed. Try again.',
+  'voice.status.listening': 'Listening…',
+  'voice.status.speaking': 'Speaking…',
+  'voice.status.thinking': 'Thinking…',
+  'voice.status.transcribing': 'Transcribing…',
+  'voice.textOnly': 'Voice is unavailable, showing the text only.',
+  'voice.tooShort': 'That was too short. Tap and speak a little longer.',
 };

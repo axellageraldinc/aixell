@@ -17,7 +17,7 @@ test('no providers: the app boots, capabilities are all false, and Fresh makes h
     const me = await app.login();
     const caps = await me.get('/api/capabilities');
     assert.equal(caps.status, 200);
-    assert.deepEqual(caps.data, { writer: false, classifier: false, images: false, socialSearch: false, transcription: false, models: false, usage: false });
+    assert.deepEqual(caps.data, { writer: false, classifier: false, images: false, socialSearch: false, transcription: false, speech: false, models: false, usage: false });
 
     const { token } = (await me.get('/api/fresh/ingest-token')).data;
     const ingest = await fetch(`${app.base}/api/fresh/ingest`, {

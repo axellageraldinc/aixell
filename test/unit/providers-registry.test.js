@@ -23,7 +23,7 @@ const agentOf = (provider, env, extra = {}) => ({ name: `a-${Math.random().toStr
 test('compat default: no providers without a config file, so every capability is null', () => {
   compat.setProviderConfig(null);
   const reg = compat.providersFor(agentOf('any-provider', 'GATEWAY_API_KEY=abc\n'));
-  assert.deepEqual(reg.flags(), { writer: false, classifier: false, images: false, socialSearch: false, transcription: false, models: false, usage: false });
+  assert.deepEqual(reg.flags(), { writer: false, classifier: false, images: false, socialSearch: false, transcription: false, speech: false, models: false, usage: false });
   assert.equal(reg.get('writer'), null);
 });
 
@@ -31,7 +31,7 @@ test('gatewayCapabilities binds every capability of one provider and a gateway o
   compat.setProviderConfig({ providers: { gw: { type: 'mock-gateway', baseUrl: 'http://127.0.0.1:1/v1', apiKey: 'agentEnv:GATEWAY_API_KEY' } }, capabilities: compat.gatewayCapabilities('gw') });
   try {
     const reg = compat.providersFor(agentOf('any-provider', 'GATEWAY_API_KEY=abc\n'));
-    assert.deepEqual(reg.flags(), { writer: true, classifier: true, images: true, socialSearch: true, transcription: true, models: true, usage: false });
+    assert.deepEqual(reg.flags(), { writer: true, classifier: true, images: true, socialSearch: true, transcription: true, speech: true, models: true, usage: false });
     assert.equal(reg.provider('writer').type, 'mock-gateway');
     assert.equal(reg.config('classifier').chain[0].model, 'jev-1-13:free');
     assert.equal(reg.config('writer').chain.find((e) => e.paid).maxPerDay, 200);

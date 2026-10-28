@@ -18,6 +18,7 @@ import { takeShared } from './lib/share.js';
 import { initPullRefresh } from './lib/pull-refresh.js';
 import { initBackNav } from './lib/back-nav.js';
 import { initComposer } from './lib/composer.js';
+import { initVoiceEntry } from './lib/voice-entry.js';
 import { initHeader } from './lib/header.js';
 import { initInspector } from './lib/inspector.js';
 import { initUsage } from './lib/usage.js';
@@ -113,6 +114,7 @@ async function boot() {
   initSessions();
   initMessages();
   initComposer();
+  initVoiceEntry();
   initHeader();
   initInspector();
   initQuotaBanner();
