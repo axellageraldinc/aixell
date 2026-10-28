@@ -9,22 +9,22 @@ import { createAssistantMessage } from './stream-message.js';
 import { userNode } from './message-nodes.js';
 import { appendUserMessage, addLive, removeLive, dropLive, rekeyLive, loadSession, settleRun } from './messages.js';
 import { approvalBlock } from './approval.js';
+import { uploadFile } from './attachments.js';
 import { notify } from './ui.js';
 import { provisionalFrom, setProvisional } from './auto-title.js';
 import { setPaused, rekeyQueue, enqueue } from './queue.js';
 import { t } from './i18n.js';
 
-// attachments: [{ id, name, kind }] from the composer. Returns false when no run could start.
-export async function sendMessage({ text, attachments }) {
+// attachments: [{ id, name, kind }] from the composer. voice: a recording (File) sent with the Send button while it was
+// still recording: the message is shown at once and the upload and transcription run as the first step of the reply.
+// Returns false when no run could start.
+export async function sendMessage({ text, attachments, voice = null }) {
   const agent = state.agent;
   if (!agent || liveRun(agent, state.sessionId)) return false;
-  const body = { text, ...chatOptions() };
-  if (state.sessionId) body.sessionId = state.sessionId;
-  if (attachments.length) body.attachments = attachments.map((a) => a.id);
 
   const ctx = newRun(agent, state.sessionId);
   if (!state.sessionId) ctx.firstTitle = provisionalFrom(text);
-  ctx.userEl = appendUserMessage(ctx.key, text, attachments);
+  ctx.userEl = appendUserMessage(ctx.key, text, voice ? [...attachments, { name: voice.name, kind: 'audio' }] : attachments);
   ctx.message = createAssistantMessage({ startMs: ctx.run.startMs });
   addLive(ctx.key, ctx.message.node);
 
@@ -33,8 +33,26 @@ export async function sendMessage({ text, attachments }) {
     removeLive(ctx.key, ctx.userEl);
     removeLive(ctx.key, ctx.message.node);
     forget(ctx);
-    return sendMessage({ text, attachments });
+    return sendMessage({ text, attachments, voice });
   };
+
+  if (voice) {
+    const step = ctx.message.prepare(t('chat.activity.transcribing'));
+    try {
+      const sent = await uploadFile(voice);
+      attachments = [...attachments, sent];
+      voice = null;
+      step.done();
+    } catch (err) {
+      step.fail();
+      ctx.failure(err.message);
+      await conclude(ctx);
+      return true;
+    }
+  }
+  const body = { text, ...chatOptions() };
+  if (state.sessionId) body.sessionId = state.sessionId;
+  if (attachments.length) body.attachments = attachments.map((a) => a.id);
 
   try {
     ctx.controller = new AbortController();

@@ -61,7 +61,7 @@ function transcriptOf(results) {
 // own): a run of 4+ words that is immediately followed by itself, or by a longer version of itself, is kept once.
 export const collapseRepeats = (text) => text.replace(/(\S+(?:\s+\S+){3,})\s+(?=\1(?![\p{L}\p{N}]))/giu, '').replace(/(\S+(?:\s+\S+){3,})\s+(?=\1)/giu, '');
 
-export function initRecorder({ onRecorded, isBlocked }) {
+export function initRecorder({ onRecorded, isBlocked, onChange = () => {} }) {
   const canRecord = Boolean(navigator.mediaDevices?.getUserMedia) && typeof MediaRecorder !== 'undefined';
   if (!canRecord && !Speech) { button.hidden = true; return; }
   const input = $('#composer-input');
@@ -78,6 +78,8 @@ export function initRecorder({ onRecorded, isBlocked }) {
   let startedAt = 0;
   let timer = 0;
   let cancelled = false;
+  // Set by take(): the next finished recording goes to the caller instead of onRecorded.
+  let taker = null;
 
   const reset = () => {
     clearInterval(timer);
@@ -88,6 +90,7 @@ export function initRecorder({ onRecorded, isBlocked }) {
     button.setAttribute('aria-label', t('composer.mic.record'));
     button.title = t('composer.mic.record');
     timeEl.hidden = true;
+    onChange();
   };
 
   async function start() {
@@ -105,9 +108,13 @@ export function initRecorder({ onRecorded, isBlocked }) {
       const type = (recorder?.mimeType || mimeType || 'audio/webm').split(';')[0];
       const ext = type.includes('mp4') ? 'm4a' : type.includes('ogg') ? 'ogg' : 'webm';
       reset();
-      if (cancelled || !chunks.length) return;
+      const give = taker;
+      taker = null;
+      if (cancelled || !chunks.length) return give?.(null);
       const stamp = new Date().toLocaleTimeString('en-GB').replaceAll(':', '-');
-      onRecorded(new File(chunks, `voice-${stamp}.${ext}`, { type }));
+      const file = new File(chunks, `voice-${stamp}.${ext}`, { type });
+      if (give) give(file);
+      else onRecorded(file);
     });
     recorder.start();
     startedAt = Date.now();
@@ -115,6 +122,7 @@ export function initRecorder({ onRecorded, isBlocked }) {
     button.setAttribute('aria-label', t('composer.mic.stop'));
     button.title = t('composer.mic.stopHint');
     timeEl.hidden = false;
+    onChange();
     const tick = () => {
       const elapsed = Date.now() - startedAt;
       timeEl.textContent = fmtClock(elapsed / 1000);
@@ -214,5 +222,11 @@ export function initRecorder({ onRecorded, isBlocked }) {
     try { session.rec?.abort(); } catch { /* already ended */ }
     session.finishNow?.();
   }
-  return { isRecording: () => Boolean(recorder || dictating), endDictation };
+  // Stops a recording and hands back the file (null when there is none), instead of attaching it to the message.
+  const take = () => new Promise((resolve) => {
+    if (!recorder) return resolve(null);
+    taker = resolve;
+    recorder.stop();
+  });
+  return { isRecording: () => Boolean(recorder || dictating), isRecordingAudio: () => Boolean(recorder), take, endDictation };
 }

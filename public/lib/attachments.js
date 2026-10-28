@@ -17,6 +17,17 @@ export function typeLabel(file) {
 }
 const MAX_BYTES = 25 * 1024 * 1024;
 
+// Uploads one file, and transcribes it when it is audio, without putting it in the tray: the chat shows the progress.
+export async function uploadFile(file, name = file.name) {
+  const res = await api(`${agentPath(state.agent)}/uploads`, {
+    method: 'POST',
+    body: file,
+    headers: { 'X-Filename': encodeURIComponent(name), 'Content-Type': file.type || 'application/octet-stream' },
+  });
+  if (res.kind === 'audio') await api(`${agentPath(state.agent)}/uploads/${encodeURIComponent(res.id)}/transcribe`, { method: 'POST' });
+  return { id: res.id, kind: res.kind, name: res.name ?? name };
+}
+
 export function createAttachments({ container, onChange }) {
   let items = []; // { localId, file, name, size, id, kind, status: 'uploading'|'transcribing'|'ready'|'error', error, previewUrl }
   let nextId = 1;

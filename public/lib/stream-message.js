@@ -114,6 +114,22 @@ export function createAssistantMessage({ startMs = Date.now(), skew = 0 } = {}) 
     begin(ts) {
       startThinking(ts);
     },
+    // A step that runs before the model is called (a voice note being transcribed). It is listed like a tool call and the
+    // "working" line names it, so the wait reads as part of the reply.
+    prepare(title) {
+      const started = Date.now();
+      const row = stepRow({ kind: 'tool', title, status: 'running' });
+      row.runFrom(started);
+      activity.add(row.node, { tool: true });
+      tools.push({ row, name: title, startTs: null });
+      phase = { kind: 'prepare', label: title };
+      follow();
+      const end = (status) => {
+        row.stop(status, status === 'done' ? (Date.now() - started) / 1000 : null);
+        phase = { kind: 'thinking', label: t('chat.activity.thinking') };
+      };
+      return { done: () => end('done'), fail: () => end('failed') };
+    },
     toolStarted(name, args, ts) {
       closeThinking(ts);
       endSegment();

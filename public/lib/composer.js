@@ -69,13 +69,15 @@ function update() {
   readonlyNotice.hidden = !readOnly;
   const blocked = blockedReason();
   const running = Boolean(runningRun());
-  const hasDraft = input.value.trim() !== '' || attachments.count() > 0;
+  const recording = Boolean(mic?.isRecordingAudio());
+  const hasDraft = input.value.trim() !== '' || attachments.count() > 0 || recording;
   input.disabled = Boolean(blocked);
   // Short on purpose: a long placeholder is cut off on a phone. The shortcuts live in the tooltip.
   input.placeholder = blocked ?? (running ? t('composer.placeholder.steer') : t('composer.input.placeholder'));
   input.title = running && !blocked ? t('composer.steer.enterHint') : '';
   attachBtn.disabled = Boolean(blocked) || boot.pending; // a file goes to the agent, which is not known yet
   const noDraft = setAction(running, hasDraft);
+  if (recording && !running) { action.setAttribute('aria-label', t('composer.sendVoice')); action.title = t('composer.sendVoice'); }
   stopBtn.hidden = !running;
   action.disabled = Boolean(blocked) || waiting || attachments.isUploading() || attachments.hasFailed() || noDraft;
   if (blocked) action.title = blocked;
@@ -121,7 +123,27 @@ async function drain() {
   try { await sendMessage(item); } finally { draining = false; update(); }
 }
 
+// Send while the mic is still recording: stop it and send now. The recording is uploaded and transcribed as the first
+// step of the reply, so there is no wait before the message goes out.
+async function submitVoice() {
+  if (runningRun()) {
+    // A reply is running: a recording cannot be steered in, so it ends up in the tray like a stopped one.
+    const file = await mic.take();
+    if (file) attachments.add([file]);
+    return;
+  }
+  if (action.disabled) return;
+  if (!(await allowSend())) return;
+  const file = await mic.take();
+  if (!file) return update();
+  const payload = takeDraft();
+  await sendMessage({ ...payload, voice: file });
+  update();
+  focusInput();
+}
+
 async function submit() {
+  if (mic?.isRecordingAudio()) return submitVoice();
   if (runningRun()) return queueDraft();
   if (action.disabled) return;
   if (boot.pending) {
@@ -163,7 +185,7 @@ function bindDropZone() {
 
 export function initComposer() {
   initModelChip();
-  mic = initRecorder({ onRecorded: (file) => attachments.add([file]), isBlocked: () => Boolean(blockedReason() || isReadOnly() || boot.pending) });
+  mic = initRecorder({ onRecorded: (file) => attachments.add([file]), isBlocked: () => Boolean(blockedReason() || isReadOnly() || boot.pending), onChange: update });
   bindDropZone();
   form.addEventListener('submit', (event) => {
     event.preventDefault();
