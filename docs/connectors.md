@@ -248,7 +248,7 @@ applicable, `unavailable`. The schedule is hourly.
 
 | Key | Default | Meaning |
 |---|---|---|
-| `slots` | one slot at `12:00` | `[{ at: 'HH:MM', topic, lang?, days?, cats, handles?, excludeLearned?, stockRule?, type? }]` |
+| `slots` | one slot at `12:00` | `[{ at: 'HH:MM', topic, lang?, days?, cats, handles?, excludeLearned?, type? }]` |
 | `dailyCap` | `7` | most paid calls per day (in `ctx.timezone`) |
 | `handles` | `{}` | named handle lists a slot may follow (`handles: 'labs'` or an inline list) |
 | `learned` | the numbers above | when a handle is allowed or excluded, globally and per language |
@@ -263,7 +263,7 @@ The call price comes from `providers.get('socialSearch').pricing.perCallMicro` (
 `costMicro`); the ledger keeps `calls`, `costMicro` and `slots` per day, and the last raw answer of
 every slot is kept for diagnosis.
 
-A slot with a `lang` gets that language's stock threshold, its own learned-handle list (which
+A slot always runs when its hour comes; the only limit is `dailyCap` (a slot that cannot run is recorded as `skipped: cap`). A slot with a `lang` gets its own learned-handle list (which
 alternates days between an open search and only those handles once `learned.lang.min` are learned)
 and that language's filter pack (`data/filters/<lang>.json`): only its `drop` rules apply, and
 there is no cross-language fallback. The word lists themselves are data, never code.

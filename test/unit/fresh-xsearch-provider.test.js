@@ -197,3 +197,20 @@ test('a language slot judges its accounts on their own list', () => {
   assert.deepEqual(x.statusOf(ctx).handles.allowed, [], 'a language account never enters the global list');
   assert.deepEqual(x.statusOf(ctx).handles.byLang.xx.allowed, ['langone']);
 });
+
+test('a due slot always runs: a full pool, an owner who has not opened Fresh and weak earlier results do not skip it', async () => {
+  const search = fakeSearch();
+  const ctx = contextOf({ search, config: { slots: [slot1] } });
+  stateFor('x').set('x-slot-health', { 1: { weak: 5, at: Date.now() } });
+  const out = await x.runDueSlot(ctx, { now: Date.now() }); // no lastOpen: the owner has been away
+  assert.equal(out.skipped, undefined, `the slot was skipped: ${out.reason}`);
+  assert.equal(search.calls.length, 1);
+});
+
+test('the daily cap is the one thing that skips a due slot', async () => {
+  const search = fakeSearch();
+  const ctx = contextOf({ search, config: { slots: [slot1], dailyCap: 0 } });
+  const out = await x.runDueSlot(ctx, { now: Date.now() });
+  assert.equal(out.reason, 'cap');
+  assert.equal(search.calls.length, 0);
+});

@@ -9,8 +9,9 @@ import { dayOf } from './budget.js';
 // it is rationed hard:
 //  - at most `dailyCap` calls per day in `ctx.timezone` (the counter is saved BEFORE the call, so
 //    a crash cannot overspend), and a kill switch (ctx.enabled),
-//  - slots a day, each with a fixed topic and hour; a slot is skipped for free when the pool
-//    already has plenty of unseen stories or the reader has not opened Fresh for a day,
+//  - slots a day, each with a fixed topic and hour. A slot always runs when its hour comes; the only
+//    thing that stops it is the daily cap (it used to be skipped for free when the pool held plenty of
+//    unseen stories or the reader had been away for a day, which left the feed without searches),
 //  - each query asks for distinct items and lists what was already captured, so repeats are not
 //    paid for twice,
 //  - a slot restricted to an allowed list of handles that brought back fewer than MIN_ITEMS items
@@ -19,7 +20,7 @@ import { dayOf } from './budget.js';
 //
 // The ledger (`ctx.budget`) keeps the exact file and format the old code used (data/fresh-x.json).
 // Config:
-//   slots: [{ at: 'HH:MM', topic, lang?, days?, cats, handles?: string[]|'name', stockRule?, type?, minLikes? }]
+//   slots: [{ at: 'HH:MM', topic, lang?, days?, cats, handles?: string[]|'name', type?, minLikes? }]
 //   minLikes: a "viral" slot. Each answer line must carry the main post's like count as [likes: N]; a line below
 //             minLikes, or without a count, is dropped, and citations (which carry no count) are ignored.
 //   dailyCap: number (default 7)
@@ -28,16 +29,12 @@ import { dayOf } from './budget.js';
 //   windowHours: 4                       a slot that could not run within this many hours is lost
 //   minItems: 3                          a handle-restricted call below this opens the next turn
 //
-// `lang` is generic: the per-language stock threshold, the alternate-day "only learned handles"
-// rule and the junk filter all key on it. The junk words of a language live in the filter pack
+// `lang` is generic: the alternate-day "only learned handles" rule and the junk filter key on it. The junk words of a language live in the filter pack
 // data/filters/<lang>.json (see src/fresh/filters.js), never in this file.
 export const DAILY_CAP = 7;
 export const MIN_ITEMS = 3;
 export const WINDOW_H = 4;
-export const UNSEEN_ENOUGH = 25;
-export const LANG_UNSEEN_ENOUGH = 8;
 const DAY_MS = 86_400_000;
-const AWAY_MS = 24 * 3_600_000;
 const RAW_MAX = 20_000;
 const RAW_STATUS = 3_000;
 const OTHER = 'ignore replies, ads, giveaways and reposts of the same story';
@@ -85,7 +82,6 @@ export function configOf(config = {}) {
       handles: slot?.handles ?? null,
       excludeLearned: slot?.excludeLearned === true,
       minLikes: Number.isFinite(slot?.minLikes) && slot.minLikes > 0 ? Math.floor(slot.minLikes) : 0,
-      stockRule: slot?.stockRule && typeof slot.stockRule === 'object' ? slot.stockRule : null,
     };
   });
   const learned = { ...LEARNED, ...(config.learned && typeof config.learned === 'object' ? config.learned : {}), lang: { ...LEARNED.lang, ...(config.learned?.lang && typeof config.learned.lang === 'object' ? config.learned.lang : {}) } };
@@ -372,16 +368,9 @@ export const holdScheduler = (on) => { hold = Boolean(on); };
 
 const sinceOf = (ctx, days, now) => (days ? dayOf(now - days * DAY_MS, zone(ctx)) : null);
 
-function stocked(ctx, slot, now, cfg) {
-  const rule = slot.stockRule ?? (slot.lang ? { langUnseen: LANG_UNSEEN_ENOUGH } : { unseen: UNSEEN_ENOUGH });
-  if (Number.isFinite(rule.langUnseen)) return store.unseenLang(slot.lang, now - 3 * DAY_MS) >= rule.langUnseen;
-  if (Number.isFinite(rule.unseen)) return store.unseenReady(rule.cats ?? slot.cats.slice(0, 1), now - 3 * DAY_MS) >= rule.unseen;
-  return false;
-}
-
 // Called every few minutes. Runs at most one due slot; returns { slot, items, ... } when it
 // called X, { skipped } when a slot was passed over for free, or null.
-export async function runDueSlot(ctx, { now = ctx?.now?.() ?? Date.now(), lastOpen = 0 } = {}) {
+export async function runDueSlot(ctx, { now = ctx?.now?.() ?? Date.now() } = {}) {
   const cfg = configOf(ctx.config ?? {});
   if (ctx.enabled === false || busy || hold) return null;
   const budget = ctx.budget;
@@ -403,14 +392,10 @@ export async function runDueSlot(ctx, { now = ctx?.now?.() ?? Date.now(), lastOp
 
   const skip = (reason) => { row.slots[due.n] = { state: 'skipped', reason, at: now }; budget.write(ledger); return { skipped: due.n, reason }; };
   if (row.calls >= cfg.dailyCap) return skip('cap');
-  if (!lastOpen || now - lastOpen > AWAY_MS) return skip('owner away');
-  const health = slotHealth(ctx)[due.n];
-  if (health && health.weak >= 3 && now - health.at < 3 * DAY_MS) return skip('failing setup');
-  if (stocked(ctx, due, now, cfg)) return skip('pool full');
   return pay(ctx, cfg, due, { now, ledger, row, day });
 }
 
-// Bootstrap: one slot, right now, whatever the clock, the owner and the stock say. Still recorded
+// Bootstrap: one slot, right now, whatever the clock says. Still recorded
 // in the ledger like any call (so today's cap may be used up afterwards).
 export async function runSlotNow(ctx, n, { now = ctx?.now?.() ?? Date.now(), days } = {}) {
   const cfg = configOf(ctx.config ?? {});
@@ -503,7 +488,7 @@ export async function fetch(ctx) {
   const cfg = configOf(ctx.config ?? {});
   if (!cfg.slots.length) return [];
   const now = ctx.now ? ctx.now() : Date.now();
-  // The offline switch is the sandbox: no clock, no owner and no stock rule may keep it from
+  // The offline switch is the sandbox: no clock may keep it from
   // answering, so a test run still exercises all four connectors (once per slot and day).
   if (offline()) {
     const today = ctx.budget?.spentToday?.(now) ?? { slots: {} };
@@ -513,7 +498,7 @@ export async function fetch(ctx) {
     if (out?.error && out.error !== 'cap') throw new Error(String(out.error));
     return out?.items ?? [];
   }
-  const out = await runDueSlot(ctx, { now, lastOpen: ctx.state.get('last-open', 0) });
+  const out = await runDueSlot(ctx, { now });
   if (out?.error && out.error !== 'cap') throw new Error(String(out.error));
   return out?.items ?? [];
 }
@@ -535,7 +520,7 @@ export default {
   configSchema: {
     type: 'object',
     properties: {
-      slots: { type: 'array', items: { type: 'object', properties: { at: { type: 'string' }, topic: { type: 'string' }, lang: { type: 'string' }, days: { type: 'number' }, cats: { type: 'array' }, handles: {}, stockRule: { type: 'object' }, minLikes: { type: 'number' } } } },
+      slots: { type: 'array', items: { type: 'object', properties: { at: { type: 'string' }, topic: { type: 'string' }, lang: { type: 'string' }, days: { type: 'number' }, cats: { type: 'array' }, handles: {}, minLikes: { type: 'number' } } } },
       dailyCap: { type: 'number' },
       handles: { type: 'object' },
       learned: { type: 'object' },
