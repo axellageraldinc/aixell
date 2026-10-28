@@ -81,6 +81,13 @@ function redactOwnHosts(html) {
 }
 
 const escapeHtml = (text) => String(text).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+// The one font file the page carries, inlined so the shared chat looks like the app without loading anything.
+const fontCss = () => {
+  try {
+    const data = fs.readFileSync(path.join(config.publicDir, 'vendor', 'fonts', 'nunito-latin-wght-normal.woff2')).toString('base64');
+    return `@font-face { font-family: "Nunito"; font-style: normal; font-weight: 200 1000; font-display: swap; src: url("data:font/woff2;base64,${data}") format("woff2"); }`;
+  } catch { return ''; }
+};
 const readCss = (name) => {
   try { return fs.readFileSync(path.join(config.publicDir, name), 'utf8').replace(/@import[^;]*;/g, '').replace(/url\((?!["']?data:)[^)]*\)/g, 'none'); } catch { return ''; }
 };
@@ -91,7 +98,7 @@ export function buildPage({ title, body }) {
   if (/<\s*(script|iframe|object|embed|form|link|meta|base)\b|<[^>]*\son[a-z]+\s*=|<[^>]*\s(href|src)\s*=\s*["']?\s*javascript:/i.test(body)) throw new HttpError(400, 'The chat contains markup that cannot be shared.', 'unsafe_html');
   const heading = escapeHtml(title).slice(0, 300);
   return redactOwnHosts(`<!doctype html>
-<html lang="en" data-color-mode="auto"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="light dark"><meta name="robots" content="noindex, nofollow, noarchive"><meta name="referrer" content="no-referrer"><title>${heading}</title><style>${readCss('ui.css')}${readCss('app.css')}${SHELL_STYLE}</style></head><body><div class="app"><main class="main"><div class="thread-wrap"><div class="thread"><div class="message-list"><div class="share-head"><h1>${heading}</h1></div>${body}</div></div></div></main></div></body></html>
+<html lang="en" data-color-mode="auto"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="light dark"><meta name="robots" content="noindex, nofollow, noarchive"><meta name="referrer" content="no-referrer"><title>${heading}</title><style>${fontCss()}${readCss('ui.css')}${readCss('app.css')}${SHELL_STYLE}</style></head><body><div class="app"><main class="main"><div class="thread-wrap"><div class="thread"><div class="message-list"><div class="share-head"><h1>${heading}</h1></div>${body}</div></div></div></main></div></body></html>
 `);
 }
 
