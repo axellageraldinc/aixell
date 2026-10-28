@@ -87,6 +87,7 @@ async function fitImage(bytes, budget) {
 export async function buildAttachments(agent, ids) {
   const lines = [];
   const imageParts = [];
+  const transcripts = [];
   let budget = INLINE_IMAGE_BUDGET;
   for (const id of ids) {
     const meta = findUpload(id);
@@ -95,6 +96,7 @@ export async function buildAttachments(agent, ids) {
       if (meta.transcript == null) throw new HttpError(400, `${meta.name} has not been transcribed yet.`, 'audio_not_transcribed');
       // No file path for the agent: it would try to transcribe the file itself with tools. The marker keeps the upload
       // id (the web shows it as a chip); the transcript below is the whole content.
+      transcripts.push(meta.transcript);
       lines.push(`[Attachment: ${meta.name} (audio, ${meta.mime}) saved as webup_${meta.id}_${meta.name}]`);
       lines.push(`[Voice message or audio from the user, already transcribed automatically (the transcript is final and needs no re-check: do not run STT/whisper yourself and do not open the audio file; if the transcript looks odd or too short, say so to the user and ask): ${meta.name}]\n${meta.transcript}`);
       continue;
@@ -118,5 +120,5 @@ export async function buildAttachments(agent, ids) {
       } catch { /* binary: the agent still has the path */ }
     }
   }
-  return { text: lines.join('\n\n'), imageParts };
+  return { text: lines.join('\n\n'), imageParts, transcripts };
 }

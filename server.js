@@ -301,6 +301,14 @@ const WEB_HINT = 'You are chatting through the web. The web can show images, aud
   + 'for example: MEDIA:/home/user/.hermes/profiles/agent/audio_out/voice.mp3 . Never say audio or video cannot be shown, '
   + 'and never write a bare path. Keep the file in the agent profile folder (or /tmp) so it can be shown.';
 
+function spokenTitle(transcript) {
+  const line = transcript.replace(/\s+/g, ' ').trim();
+  if (line.length <= 48) return line;
+  const cut = line.slice(0, 48);
+  const space = cut.lastIndexOf(' ');
+  return `${(space > 24 ? cut.slice(0, space) : cut).replace(/[\s,.;:!?-]+$/, '')}…`;
+}
+
 async function streamChat(req, res, agent) {
   const requestedAt = Date.now();
   const body = await readJson(req);
@@ -314,6 +322,8 @@ async function streamChat(req, res, agent) {
   const message = [text, attachments.text].filter(Boolean).join('\n\n');
   const input = attachments.imageParts.length ? [{ type: 'text', text: message || 'See the attached image.' }, ...attachments.imageParts] : message;
 
+  // A chat that starts with a voice note and no typed text is named after what was said, never after the audio file.
+  const spoken = text.trim() ? '' : attachments.transcripts.find((t) => t?.trim()) ?? '';
   const payload = { input };
   for (const key of ['model', 'provider']) {
     if (body[key] != null) {
@@ -339,12 +349,12 @@ async function streamChat(req, res, agent) {
     callsBefore = (await webSession(agent, sessionId)).api_call_count || 0;
     if (findRun(agent.name, sessionId)) throw new HttpError(409, 'This chat already has a reply in progress.', 'run_in_progress');
   } else {
-    const data = await agentJson(agent, '/api/sessions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+    const data = await agentJson(agent, '/api/sessions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(spoken ? { title: spokenTitle(spoken) } : {}) });
     sessionId = (data?.session ?? data)?.id;
     created = true;
     if (!sessionId) throw new HttpError(502, 'The agent did not create a session.', 'session_create_failed');
     // The picture for the feed is drawn now, alongside the reply, so it is ready by the time the feed is opened.
-    if (getCoversEnabled(agent.name)) makeCover(agent, sessionId, text).catch(() => {});
+    if (getCoversEnabled(agent.name)) makeCover(agent, sessionId, text || spoken).catch(() => {});
   }
 
   const personality = getPersonality(agent.name);
