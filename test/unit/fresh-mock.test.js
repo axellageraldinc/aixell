@@ -62,7 +62,7 @@ test('X search: a language slot is cleaned by its own filter pack (and by nothin
   const all = parseAnswer(data, { n: 2, cats: ['ai'] });
   const unfiltered = parseAnswer(data, { n: 2, cats: ['ai'], lang: 'xx' });
   assert.equal(all.length, 7, 'without a language filter every line is an item');
-  assert.equal(unfiltered.length, 6, 'with no pack for that language only the affiliate link is dropped');
+  assert.equal(unfiltered.length, 7, 'with no pack for that language nothing is dropped: cards link to posts, so there is no affiliate link to catch');
 
   fs.mkdirSync(path.join(dataDir, 'filters'), { recursive: true });
   fs.writeFileSync(path.join(dataDir, 'filters', 'xx.json'), JSON.stringify({
@@ -74,9 +74,9 @@ test('X search: a language slot is cleaned by its own filter pack (and by nothin
   clearFilterCache();
   try {
     const filtered = parseAnswer(data, { n: 2, cats: ['ai'], lang: 'xx' });
-    assert.equal(filtered.length, 4, 'the course and the giveaway lines are dropped by the pack');
+    assert.equal(filtered.length, 5, 'the course and the giveaway lines are dropped by the pack');
     assert.ok(filtered.every((i) => i.meta.lang === 'xx'));
-    assert.ok(!filtered.some((i) => /paid-course|giveaway/.test(i.url)));
+    assert.ok(!filtered.some((i) => /paid course|giveaway/i.test(i.snippet)));
   } finally {
     fs.rmSync(path.join(dataDir, 'filters', 'xx.json'), { force: true });
     clearFilterCache();

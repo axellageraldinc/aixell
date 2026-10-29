@@ -45,21 +45,21 @@ function chat(body) {
 // The language slot (lang:xx): good shares mixed with what a language's filter pack must drop (affiliate link,
 // course for sale, giveaway). A test that wants the per-language filter writes its own pack.
 const LANG_ANSWER = [
-  '- @dev_notes: A practical write-up on cutting token cost with prompt caching, with real numbers. https://mock-lang.example.com/token-cost',
-  '- @local_ai: Testing a quantized model on a 12GB GPU through llama.cpp, around 38 tokens per second. https://github.com/mock-lang/quantized-12gb',
-  '- @promo_ai: A paid course on AI coding agents, enrol now for half price. https://mock-lang.example.com/paid-course',
-  '- @affil_king: The best cheap AI tool, use this link. https://mock-lang.example.com/tool?ref=abc123',
-  '- @giveaway_bot: Giveaway: premium AI accounts for ten people. https://mock-lang.example.com/giveaway-ai',
-  '- @release_notes: A new open model release with a longer context window and lower API prices. https://mock-lang.example.com/model-release',
-  '- @sec_notes: A malicious npm package disguised as an AI SDK stole API keys from env files. https://mock-lang.example.com/npm-sdk',
+  '- @dev_notes: A practical write-up on cutting token cost with prompt caching, with real numbers. https://x.com/dev_notes/status/2000000000000000101',
+  '- @local_ai: Testing a quantized model on a 12GB GPU through llama.cpp, around 38 tokens per second. https://x.com/local_ai/status/2000000000000000102',
+  '- @promo_ai: A paid course on AI coding agents, enrol now for half price. https://x.com/promo_ai/status/2000000000000000103',
+  '- @affil_king: The best cheap AI tool, use my referral link. https://x.com/affil_king/status/2000000000000000104',
+  '- @giveaway_bot: Giveaway: premium AI accounts for ten people. https://x.com/giveaway_bot/status/2000000000000000105',
+  '- @release_notes: A new open model release with a longer context window and lower API prices. https://x.com/release_notes/status/2000000000000000106',
+  '- @sec_notes: A malicious npm package disguised as an AI SDK stole API keys from env files. https://x.com/sec_notes/status/2000000000000000107',
 ].join('\n');
 
 function xSearch(body) {
   const q = String(body.query ?? '');
   if (/lang:[a-z]{2}/.test(q)) return json({ id: 'mock-x-lang', answer: LANG_ANSWER, citations: [], cost_micro: 100_000_000 });
   return json({
-    id: 'mock-x', answer: `1. @OpenAI announces a new model update with a longer context window and lower prices. https://openai.com/index/mock-update\n2. @simonw tests a small local model with llama.cpp on a 12GB GPU: 40 tokens/s with Q4. https://x.com/simonw/status/1000000000000000001\n(query: ${q.slice(0, 40)})`,
-    citations: [{ url: 'https://openai.com/index/mock-update', title: 'Mock model update' }, { url: 'https://x.com/simonw/status/1000000000000000001', title: 'simonw on X' }],
+    id: 'mock-x', answer: `1. @OpenAI announces a new model update with a longer context window and lower prices. https://x.com/OpenAI/status/1000000000000000000\n2. @simonw tests a small local model with llama.cpp on a 12GB GPU: 40 tokens/s with Q4. https://x.com/simonw/status/1000000000000000001\n(query: ${q.slice(0, 40)})`,
+    citations: [{ url: 'https://x.com/OpenAI/status/1000000000000000000', title: 'OpenAI on X' }, { url: 'https://x.com/simonw/status/1000000000000000001', title: 'simonw on X' }],
     cost_micro: 100_000_000,
   });
 }

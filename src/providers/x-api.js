@@ -16,7 +16,6 @@ const WEEK_MS = 7 * 86_400_000;
 
 const wordsOf = (text) => [...new Set(String(text ?? '').toLowerCase().match(/[\p{L}\p{N}_#]{2,}/gu) ?? [])].slice(0, MAX_TOPIC_WORDS);
 const handleOk = (h) => /^\w{1,15}$/.test(h);
-const isXUrl = (url) => /^https?:\/\/(?:www\.|mobile\.)?(?:x|twitter)\.com\//i.test(url);
 
 export function buildXQuery({ topic, query, filter = {}, lang = '' } = {}) {
   const parts = [];
@@ -81,8 +80,7 @@ export class XApi {
       const handle = users.get(post.author_id);
       if (!handle) continue;
       const urls = post.entities?.urls ?? [];
-      const external = urls.map((u) => u.unwound_url || u.expanded_url).find((u) => u && !isXUrl(u));
-      const link = external || `https://x.com/${handle}/status/${post.id}`;
+      const link = `https://x.com/${handle}/status/${post.id}`; // a card links to the post, never to a page the post mentions
       let body = String(post.text ?? '');
       for (const u of urls) body = body.split(u.url).join(' ');
       body = body.replace(/\s+/g, ' ').trim();

@@ -25,51 +25,52 @@ const CITATIONS = [
 
 test('bold-name format: name plus a short description, no markdown or URL in the title', () => {
   const items = parseAnswer({ answer: BOLD_ANSWER, citations: CITATIONS }, slot);
-  assert.equal(items.length, 4, 'three from the answer and one uncovered citation with a real title');
+  assert.equal(items.length, 3, 'three from the answer; a citation that is not an X post is not a card');
   assert.ok(items[0].title.startsWith('Agent Duet (Example Lab): A proactive agent app'), items[0].title);
   assert.ok(items[1].title.startsWith('Model-9B (open model): MIT-licensed'));
   assert.ok(items.every((item) => !/\*\*|https?:/.test(item.title)));
   assert.deepEqual(items.slice(0, 3).map((item) => item.meta.handle), ['examplelab', 'someone', 'another']);
-  assert.equal(items[0].url, 'https://x.com/examplelab/status/2000000000000000001', 'the post link is the URL when there is no other');
+  assert.equal(items[0].url, 'https://x.com/examplelab/status/2000000000000000001', 'the post link is the URL');
   assert.ok(!items.some((item) => /most discussed/.test(item.title)), 'the intro line is not an item');
   assert.ok(items[1].snippet.startsWith('MIT-licensed') && !/Post link/.test(items[1].snippet));
 });
 
-test('citations: URL-only titles are dropped, posts already in the answer are dropped, real titles are kept', () => {
+test('citations: URL-only titles are dropped, posts already in the answer are dropped, and only X posts become cards', () => {
   const items = parseAnswer({ answer: BOLD_ANSWER, citations: CITATIONS }, slot);
   assert.ok(!items.some((item) => item.url.includes('2000000000000000009')));
   assert.equal(items.filter((item) => item.url.includes('2000000000000000001')).length, 1);
-  assert.equal(items[3].title, 'A real article title');
+  assert.ok(!items.some((item) => item.title === 'A real article title'), 'an article citation is not a card');
+  const extra = parseAnswer({ answer: '', citations: [{ url: 'https://x.com/zed/status/77', title: 'Zed ships a thing' }] }, slot);
+  assert.deepEqual(extra.map((item) => item.url), ['https://x.com/zed/status/77']);
   assert.equal(parseAnswer({ answer: '', citations: CITATIONS.slice(0, 2) }, slot).length, 0);
 });
 
-test('one-line format: "- @handle: summary. URL"', () => {
-  const answer = `- @LabOne: New model gpt-9 with 1M context. https://example.com/a
-- @dev2: llama.cpp q4 test on a 12GB card. https://github.com/example/llama.cpp/pull/1
-- @dev3: See [the post](https://x.com/dev3/status/123) about a new CLI tool`;
+test('one-line format: "- @handle: summary. POST_URL"; a line without a post link is not a card', () => {
+  const answer = `- @LabOne: New model gpt-9 with 1M context. https://x.com/LabOne/status/1
+- @dev2: llama.cpp q4 test on a 12GB card. https://x.com/dev2/status/2
+- @dev3: See [the post](https://x.com/dev3/status/123) about a new CLI tool
+- @dev4: An invented repo link. https://github.com/dev4/made-up`;
   const items = parseAnswer({ answer }, slot);
   assert.equal(items.length, 3);
   assert.equal(items[0].meta.handle, 'LabOne');
   assert.equal(items[0].title, 'New model gpt-9 with 1M context.');
-  assert.equal(items[0].url, 'https://example.com/a');
+  assert.equal(items[0].url, 'https://x.com/LabOne/status/1');
   assert.equal(items[0].name, 'X · @LabOne');
   assert.equal(items[2].url, 'https://x.com/dev3/status/123');
   assert.match(items[2].title, /the post/);
 });
 
-test('numbered format: a non-X link wins, the handle comes from the post link, markdown link text is the title', () => {
+test('numbered format: the card links to the post, the handle comes from the post link, a line with no post is dropped', () => {
   const answer = `Top stories:
 1. **Foo 2** by @foo: A new coding agent CLI with MCP support.
    Source: [repo](https://github.com/foo/foo2)
    Post: https://x.com/foo/status/9
 2) [Bar release](https://bar.example/r): Bar adds local quantization support for 12GB cards.`;
   const items = parseAnswer({ answer }, slot);
-  assert.equal(items.length, 2, 'the intro line is skipped');
-  assert.equal(items[0].url, 'https://github.com/foo/foo2');
+  assert.equal(items.length, 1, 'the intro line and the line without a post link are skipped');
+  assert.equal(items[0].url, 'https://x.com/foo/status/9');
   assert.equal(items[0].meta.handle, 'foo');
   assert.equal(items[0].meta.post, 'https://x.com/foo/status/9');
-  assert.equal(items[1].url, 'https://bar.example/r');
-  assert.match(items[1].title, /^Bar release/);
 });
 
 test('empty and malformed answers produce no items', () => {
@@ -86,13 +87,13 @@ test('a viral slot keeps only lines whose like count reaches minLikes, and ignor
   assert.equal(likesOf('no count here'), null);
   const viral = { n: 8, cats: ['tech'], minLikes: 1000 };
   const answer = [
-    '- @a: A solo developer shipped a tool that took off. https://example.com/one [likes: 4.2k]',
-    '- @b: A small announcement from a niche project. https://example.com/two [likes: 120]',
-    '- @c: A launch with no count given at all. https://example.com/three',
+    '- @a: A solo developer shipped a tool that took off. https://x.com/a/status/11 [likes: 4.2k]',
+    '- @b: A small announcement from a niche project. https://x.com/b/status/12 [likes: 120]',
+    '- @c: A launch with no count given at all. https://x.com/c/status/13',
   ].join('\n');
   const items = parseAnswer({ answer, citations: CITATIONS }, viral);
   assert.equal(items.length, 1);
-  assert.equal(items[0].url, 'https://example.com/one');
+  assert.equal(items[0].url, 'https://x.com/a/status/11');
   assert.equal(items[0].meta.likes, 4200);
   assert.ok(!/likes/i.test(items[0].title) && !/likes/i.test(items[0].snippet), 'the count tag is not part of the card text');
   assert.ok(buildQuery(viral).includes('at least 1000 likes'));

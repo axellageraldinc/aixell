@@ -48,10 +48,10 @@ test('search: sends the bearer token, the operators and a clamped start time; re
   assert.equal(url.searchParams.get('expansions'), 'author_id');
   assert.equal(url.searchParams.get('start_time'), '2026-10-16T12:02:00.000Z', 'older than seven days is clamped to the API window');
   assert.equal(out.costMicro, 5000);
-  assert.equal(out.answer, '- @alice: Big release with a longer context window https://example.com/release-notes\n- @bob: Thread on local models https://x.com/bob/status/12');
-  assert.deepEqual(out.citations.map((c) => c.url), ['https://example.com/release-notes', 'https://x.com/bob/status/12']);
+  assert.equal(out.answer, '- @alice: Big release with a longer context window https://x.com/alice/status/11\n- @bob: Thread on local models https://x.com/bob/status/12');
+  assert.deepEqual(out.citations.map((c) => c.url), ['https://x.com/alice/status/11', 'https://x.com/bob/status/12']);
   const items = parseAnswer({ answer: out.answer, citations: out.citations }, { cats: ['ai'] });
-  assert.ok(items.length >= 1 && items[0].url === 'https://example.com/release-notes' && items[0].meta.handle === 'alice');
+  assert.ok(items.length >= 1 && items[0].url === 'https://x.com/alice/status/11' && items[0].meta.handle === 'alice');
   // a request language beats the configured one; a recent start date is kept as given
   await p.search.search({ topic: 'x', lang: 'de', filter: { from: '2026-10-22' } });
   assert.match(fetch.calls[1].url.searchParams.get('query'), /lang:de/);

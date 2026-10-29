@@ -169,7 +169,7 @@ export function buildQuery(slot, others = []) {
   const covered = others.slice(0, 14).map((title) => String(title).replace(/\s+/g, ' ').slice(0, 60)).join('; ');
   const language = slot.lang ? ` Only posts in language ${slot.lang} (lang:${slot.lang}).` : '';
   const viral = slot.minLikes ? ` Only stories that are viral right now: the main post must have at least ${slot.minLikes} likes. End each line with the approximate like count of that post as [likes: N] (for example [likes: 2400]).` : '';
-  return `${slot.topic}. List 15 to 25 DISTINCT items, one per line, in this form: "- @handle: one-sentence summary. URL". Each item must be a different story or release with exactly ONE link (the article, repo or product page rather than the post itself when there is one). No duplicates, ${OTHER}.${language}${viral}${covered ? ` Other than: ${covered}.` : ''}`;
+  return `${slot.topic}. List 15 to 25 DISTINCT items, one per line, in this form: "- @handle: one-sentence summary. POST_URL". Each item must be a different story or release with exactly ONE link: the URL of the X post itself (https://x.com/handle/status/ID). Never link to an article, repo or product page, and never write a URL you did not get from the search. No duplicates, ${OTHER}.${language}${viral}${covered ? ` Other than: ${covered}.` : ''}`;
 }
 
 const URL_RE = /https?:\/\/[^\s)\]>"']+/g;
@@ -253,11 +253,12 @@ export function parseAnswerStats(data, slot = {}) {
     const lines = rawLines.map((line) => line.replace(new RegExp(LIKES_RE.source, 'gi'), '').trimEnd());
     const full = lines.join(' ');
     const urls = (full.match(URL_RE) ?? []).map((url) => url.replace(/[.,;:]+$/, ''));
-    if (!urls.length) continue;
-    const post = urls.find(isX) ?? '';
+    // The card links to the X post and nothing else: a model that writes an article or repo link sometimes invents it.
+    const post = urls.find((url) => isX(url) && /\/status(?:es)?\/\d+/.test(url)) ?? '';
+    if (!post) continue;
     const pathHandle = post.match(/(?:x|twitter)\.com\/(\w{1,15})\/status/i)?.[1];
     const handle = (pathHandle && pathHandle.toLowerCase() !== 'i' ? pathHandle : '') || full.match(/@(\w{1,15})/)?.[1] || '';
-    const link = urls.find((url) => !isX(url)) ?? urls[0];
+    const link = post;
     const first = lines[0].replace(/\[([^\]]*)\]\([^)]*\)/g, '$1');
     const bold = first.match(/^\s*(?:\*\*|__)(.+?)(?:\*\*|__)(\s*\([^)]*\))?\s*[:\u2013\u2014-]?\s*/);
     let title;
@@ -283,7 +284,7 @@ export function parseAnswerStats(data, slot = {}) {
     push(item);
   }
   for (const citation of slot.minLikes ? [] : data?.citations ?? []) {
-    if (!citation?.url || !/^https?:/.test(citation.url)) continue;
+    if (!citation?.url || !isX(citation.url) || !statusId(citation.url)) continue;
     const title = String(citation.title ?? '').trim();
     if (!title || title === citation.url || /^https?:\/\/\S+$/.test(title)) continue;
     if (posts.has(statusId(citation.url))) continue;

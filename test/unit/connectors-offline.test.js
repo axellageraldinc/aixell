@@ -28,7 +28,7 @@ function fakeSearch() {
     pricing: { perCallMicro: 100_000_000 },
     async search(request) {
       calls.push(request);
-      return { answer: '- @someone: A new model release with a longer context window. https://example.com/a', citations: [], costMicro: 100_000_000 };
+      return { answer: '- @someone: A new model release with a longer context window. https://x.com/someone/status/1', citations: [], costMicro: 100_000_000 };
     },
   };
 }

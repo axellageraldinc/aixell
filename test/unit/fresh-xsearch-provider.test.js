@@ -16,7 +16,7 @@ const LEDGER = path.join(dataDir, 'fresh-x.json');
 
 // A fake socialSearch provider: it counts the calls, checks the filter it got and answers a fixed
 // answer. `beforeAnswer` runs while the call is in flight (to see the ledger state).
-function fakeSearch({ answer = '- @someone: A new model release with a longer context window. https://example.com/a', costMicro = 100_000_000, beforeAnswer } = {}) {
+function fakeSearch({ answer = '- @someone: A new model release with a longer context window. https://x.com/someone/status/1', costMicro = 100_000_000, beforeAnswer } = {}) {
   const calls = [];
   return {
     calls,
@@ -173,7 +173,7 @@ test('a language slot is filtered by that language\'s pack, not by the English o
     id: 'xx', lang: 'xx', rules: [{ name: 'giveaway', action: 'drop', test: '\\bgiveaway\\b' }],
   }));
   x.clearFilterCache();
-  const search = fakeSearch({ answer: '- @one: A useful tool write-up with numbers. https://example.com/one\n- @two: Giveaway: premium accounts for ten people. https://example.com/two' });
+  const search = fakeSearch({ answer: '- @one: A useful tool write-up with numbers. https://x.com/one/status/1\n- @two: Giveaway: premium accounts for ten people. https://x.com/two/status/2' });
   const ctx = contextOf({ search, config: { slots: [{ at: '00:00', topic: 'tools', cats: ['ai'], lang: 'xx' }] } });
   const out = await x.runSlotNow(ctx, 1, { now: Date.now() });
   assert.equal(out.parsed, 2);
