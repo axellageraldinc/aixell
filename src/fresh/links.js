@@ -44,6 +44,20 @@ export async function resolveUrl(url) {
   return out ?? '';
 }
 
+// The search model writes the link of an X story itself and sometimes invents one (a repo that does not exist). Only a definite
+// "gone" (404 / 410) counts as dead; a timeout, a 403 or a 5xx keeps the link, since the page may be fine.
+let probe = null;
+export const setProbe = (fn) => { probe = fn; }; // tests: (url) => true when the page is gone
+export async function isDead(url) {
+  if (probe) return probe(url);
+  if (process.env.HERMES_WEB_FRESH_OFFLINE === '1') return false;
+  try {
+    let res = await safeFetch(url, { method: 'HEAD', timeoutMs: TIMEOUT_MS, maxBytes: 1 });
+    if (res.status === 405 || res.status === 403) res = await safeFetch(url, { timeoutMs: TIMEOUT_MS, maxBytes: 4096 });
+    return res.status === 404 || res.status === 410;
+  } catch { return false; }
+}
+
 // items -> the same items with short links replaced by what they lead to. One that cannot be resolved keeps the X post it was
 // found in (meta.post) as its link, otherwise it is dropped.
 export async function resolveItems(items) {
@@ -55,6 +69,14 @@ export async function resolveItems(items) {
       const url = await resolveUrl(item.url);
       if (url) out[i] = { ...item, url, meta: { ...item.meta, short: item.url } };
       else if (item.meta?.post) out[i] = { ...item, url: item.meta.post };
+    }));
+  }
+  // X links were written by a model: a dead one falls back to the post it came from, or the story is dropped.
+  const xs = out.map((item, i) => [item, i]).filter(([item]) => item?.meta?.via === 'x' && item.url !== item.meta.post);
+  for (let n = 0; n < xs.length; n += CONCURRENCY) {
+    await Promise.all(xs.slice(n, n + CONCURRENCY).map(async ([item, i]) => {
+      if (!(await isDead(item.url))) return;
+      out[i] = item.meta.post ? { ...item, url: item.meta.post } : null;
     }));
   }
   return out.filter(Boolean);
