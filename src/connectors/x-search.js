@@ -477,7 +477,7 @@ async function pay(ctx, cfg, slot, { now, ledger, row, day, days }) {
   } catch (err) {
     // A timeout may still have been charged: the call stays counted.
     finish({ state: 'error', reason: String(err.message).slice(0, 60) });
-    return { slot: slot.n, error: err.message, charged: true };
+    return { slot: slot.n, error: err.cause ? `${err.message} (${err.cause.code ?? err.cause.message})` : err.message, charged: true };
   } finally { busy = false; }
 }
 
