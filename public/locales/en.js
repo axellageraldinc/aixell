@@ -186,7 +186,6 @@ export default {
   'feed.category': 'Category',
   'feed.chip.all': 'All',
   'feed.chip.saved': 'Saved',
-  'feed.chip.security': 'Security',
   'feed.copyPage': "Copy this page's answer",
   'feed.copyPage.empty': 'No answer to copy yet.',
   'feed.copyright': '© {year} {app}',

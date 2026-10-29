@@ -1,5 +1,4 @@
-// "Fresh": the home timeline of the Feed style. Short, readable cards about what is new (PC gaming, console, PC building, AI,
-// security), gathered and ranked by the server ("For you" or newest first); each card can be read in place, saved, turned into a chat, or saved.
+// "Fresh": the home timeline of the Feed style. Short, readable cards about what is new (PC gaming, PC building, AI), gathered and ranked by the server ("For you" or newest first); each card can be read in place, saved, turned into a chat, or saved.
 // The list is cached on the phone, so the app opens on what you saw last while the news is checked in the background;
 // it loads further pages as you scroll, and a small pill says when something newer is waiting.
 import { h } from './dom.js';
@@ -18,7 +17,7 @@ const MODE_KEY = 'hermes.fresh.mode';
 const PAGE = 10;
 const POLL_MS = 5 * 60_000;
 const STALE_MS = 2 * 60_000;
-const CHIPS = [['', t('feed.chip.all')], ['pcgaming', 'PC Gaming'], ['console', 'Console'], ['pcbuild', 'PC Building'], ['ai', 'AI'], ['security', t('feed.chip.security')], ['saved', t('feed.chip.saved')]];
+const CHIPS = [['', t('feed.chip.all')], ['pcgaming', 'PC Gaming'], ['pcbuild', 'PC Building'], ['ai', 'AI'], ['saved', t('feed.chip.saved')]];
 const ORDER_KEY = 'hermes.fresh.catorder'; // the chip order, cached so the bar paints right on the first frame (the server copy wins)
 const DEFAULT_ORDER = CHIPS.slice(1).map(([key]) => key);
 const MODES = [['foryou', t('feed.mode.foryou')], ['latest', t('feed.mode.latest')]];
