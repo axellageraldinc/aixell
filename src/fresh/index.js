@@ -662,6 +662,21 @@ const bootDeps = () => {
     room: () => DAILY_CAP - store.dailyCount(Date.now() - 24 * 3_600_000),
   };
 };
+// Runs the named X slots once each, now, whatever the clock says (a paid call per slot, recorded in the ledger like any other).
+export async function runXSlots(numbers) {
+  const deps = bootDeps();
+  if (!deps.xOn()) return { error: 'X is switched off', slots: [] };
+  const slots = [];
+  for (const n of numbers) {
+    const out = await deps.runXSlot(n, { days: 2 });
+    const line = { slot: n, found: out.parsed ?? out.items?.length ?? 0, kept: out.kept ?? out.items?.length ?? 0, added: 0 };
+    if (out.error) line.error = String(out.error);
+    if (out.items?.length) line.added = await deps.ingestX(out.items, { fetched: 0, added: 0 });
+    slots.push(line);
+    if (out.error === 402 || out.error === 'blocked') break;
+  }
+  return { slots };
+}
 export const runBootstrap = ({ force = false } = {}) => startBootstrap(bootDeps(), { force });
 export { bootstrapProgress };
 

@@ -34,7 +34,7 @@ import { listShares, publishShare, readSettings as shareSettings, revokeShare } 
 import { listTelegramSessions, telegramMessages, transcriptOf } from './src/telegram.js';
 import { lastPromptTokens, searchMessages } from './src/state-db.js';
 import { OPENUI_PROMPT } from './src/openui-prompt.js';
-import { freshBootstrap, freshIngest, freshRoute } from './src/fresh/routes.js';
+import { freshBootstrap, freshXRun, freshIngest, freshRoute } from './src/fresh/routes.js';
 import { startFresh } from './src/fresh/index.js';
 import { providersFor } from './src/providers/compat.js';
 import { buildRegistry } from './src/providers/registry.js';
@@ -701,6 +701,7 @@ async function handle(req, res) {
       if (url.pathname === '/api/login' && req.method === 'POST') return await login(req, res);
       // A Hermes worker pushes stories with its own bearer token (no browser session, no cookie).
       if (url.pathname === '/api/fresh/ingest' && req.method === 'POST') return await freshIngest(req, res);
+      if (url.pathname === '/api/fresh/x-run' && req.method === 'POST') return await freshXRun(req, res, url);
       if (url.pathname === '/api/fresh/bootstrap' && ['GET', 'POST'].includes(req.method)) return await freshBootstrap(req, res, url);
       const session = currentSession(req);
       if (!session) throw new HttpError(401, 'Authentication required.', 'unauthorized');

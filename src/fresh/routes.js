@@ -6,7 +6,7 @@ import { reloadCategories } from './profile.js';
 import { categoryEditorView, saveCategories } from './categories.js';
 import { ingest as ingestConnector } from '../connectors/ingest.js';
 import * as glossary from './glossary.js';
-import { actOn, addSource, bootstrapProgress, runBootstrap, freshStatus, getFreshSettings, hasImage, imageFile, ingest, ingestToken, listFresh, localeInfo, markSeen, pollFresh, readerOf, refreshNow, removeSource, setFreshSettings, signalOn, sourcesView, toggleSource } from './index.js';
+import { actOn, addSource, bootstrapProgress, runBootstrap, runXSlots, freshStatus, getFreshSettings, hasImage, imageFile, ingest, ingestToken, listFresh, localeInfo, markSeen, pollFresh, readerOf, refreshNow, removeSource, setFreshSettings, signalOn, sourcesView, toggleSource } from './index.js';
 
 const ID = /^[a-f0-9]{16}$/;
 const same = (a, b) => { const x = Buffer.from(String(a)); const y = Buffer.from(String(b)); return x.length === y.length && crypto.timingSafeEqual(x, y); };
@@ -44,6 +44,16 @@ export async function freshBootstrap(req, res, url) {
   if (out.busy) throw new HttpError(409, 'A bootstrap is already running.', 'bootstrap_running', { job: out.busy });
   if (out.recent) throw new HttpError(429, 'A bootstrap already ran in the last 24 hours. Use ?force=1 to run it again.', 'bootstrap_recent', { nextAt: out.recent });
   return sendJson(res, 202, { job: out.job });
+}
+
+// Runs chosen X slots now (POST ?slots=3,4,5) with the same bearer token. Each one is a paid call.
+export async function freshXRun(req, res, url) {
+  const header = String(req.headers.authorization ?? '');
+  if (!header.startsWith('Bearer ') || !same(header.slice(7), ingestToken())) throw new HttpError(401, 'Invalid ingest token.', 'unauthorized');
+  if (req.method !== 'POST') throw new HttpError(405, 'Method not allowed.', 'bad_method');
+  const numbers = [...new Set(String(url.searchParams.get('slots') ?? '').split(',').map(Number))].filter((n) => Number.isInteger(n) && n > 0);
+  if (!numbers.length || numbers.length > 9) throw new HttpError(400, 'Pass ?slots=3,4,5 (slot numbers).', 'bad_slots');
+  return sendJson(res, 200, await runXSlots(numbers));
 }
 
 // Every other /api/fresh/... route (the caller has already checked the session and, for writes, the CSRF token).

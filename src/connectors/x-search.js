@@ -339,7 +339,7 @@ export function statusOf(ctx) {
     costToday: today.costMicro / 1e6, // in `currency`
     callsMonth: month.calls,
     costMonth: month.costMicro / 1e6,
-    slots: cfg.slots.map((slot) => ({
+    slots: [...cfg.slots].sort((a, b) => a.minutes - b.minutes).map((slot) => ({
       n: slot.n,
       at: slot.at,
       hour: Math.floor(slot.minutes / 60),
