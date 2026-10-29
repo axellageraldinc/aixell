@@ -309,7 +309,7 @@ export function initFeedShell() {
   // "Ask <agent>" on a story: an empty chat with the story already written in the box, ready to send.
   const ask = (item) => {
     emit('session:select', null);
-    const text = t('feed.ask.prompt', { title: item.original || item.title, url: item.url, summary: item.summary });
+    const text = t('feed.ask.prompt', { title: item.original || item.title, url: item.url });
     setTimeout(() => window.dispatchEvent(new CustomEvent('hermes:shared', { detail: { text } })), 250);
   };
   fresh = createFresh({ scroller, ask });

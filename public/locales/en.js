@@ -166,7 +166,7 @@ export default {
 
   // feed
   'feed.activeChats': 'Active chats',
-  'feed.ask.prompt': 'Tell me more about this story and what you think:\n\n{title}\n{url}\n\nSummary: {summary}',
+  'feed.ask.prompt': 'Jelasin tentang ini.\n\n{title}\n{url}',
   'feed.auto.interval': 'Check every',
   'feed.auto.title': 'Find stories automatically',
   'feed.card.actions': 'Story actions',
