@@ -54,8 +54,8 @@ export function chatOptions() {
   const effort = s.reasoningEffort ?? state.models?.defaultEffort;
   if (effort && effortAllowed(model)) options.reasoningEffort = effort;
   if (s.serviceTier) options.serviceTier = s.serviceTier;
-  // Visualize is off unless this chat turned it on; the server only adds the grammar prompt when it is true.
-  if (s.visualize === true) options.visualize = true;
+  // Visualize is on unless this chat switched it off; the server only adds the grammar prompt when it is true.
+  if (s.visualize !== false) options.visualize = true;
   return options;
 }
 
@@ -72,11 +72,11 @@ export function resetSettings() {
   emit('settings:changed');
 }
 
-// The per-chat Visualize switch. Default off, including for a chat that never touched it.
-export const visualizeOn = () => currentSettings().visualize === true;
+// The per-chat Visualize switch. Default on, including for a chat that never touched it; only an explicit off is stored.
+export const visualizeOn = () => currentSettings().visualize !== false;
 
 export function setVisualize(on) {
-  updateSettings({ visualize: on === true ? true : undefined });
+  updateSettings({ visualize: on === true ? undefined : false });
 }
 
 // A chat that gets its first message turns from "new" into a real session: carry the settings over.

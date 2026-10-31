@@ -1248,6 +1248,8 @@ a.att-file:hover { border-color: color-mix(in oklab, var(--color-primary) 45%, t
 .markdown-body.md th, .markdown-body.md td { min-width: 5.5rem; max-width: 24rem; overflow-wrap: normal; word-break: normal; hyphens: manual; }
 .markdown-body.md td:first-child, .markdown-body.md th:first-child { position: sticky; left: 0; z-index: 1; min-width: 6.5rem; background: var(--bgColor-default); font-weight: 700; box-shadow: 1px 0 0 var(--hairline); }
 .markdown-body.md th:first-child { background: var(--bgColor-muted); }
+/* A long unbroken name in the sticky first column (owner/repo-name) wraps inside its cell instead of running under the next column */
+.markdown-body.md td:first-child, .markdown-body.md th:first-child { max-width: 12rem; overflow-wrap: anywhere; }
 .markdown-body.md tbody tr:hover td { background: var(--bgColor-muted); }
 .table-wrap { overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; }
 .markdown-body.md td:first-child, .markdown-body.md th:first-child { max-width: 9.5rem; }
