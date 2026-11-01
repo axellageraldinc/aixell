@@ -4,12 +4,12 @@ import { resolveSecret } from '../config/secrets.js';
 // Turns a `{ providers, capabilities }` config into provider instances and capability bindings.
 //
 //   providers:    { <id>: { type, baseUrl, apiKey: "env:NAME" | "file:relative/path" | "agentEnv:NAME", accountKey, ... } }
-//   capabilities: { writer|classifier|images|socialSearch|transcription|speech|models: { provider: <id>, chain?, model?, voice?, ... } }
+//   capabilities: { writer|classifier|images|socialSearch|transcription|speech|models|embeddings: { provider: <id>, chain?, model?, voice?, ... } }
 //
 // A capability whose provider is missing, unknown or cannot do it resolves to null: callers ask `registry.get('classifier')` and degrade.
 // Secrets are never literal values in the config: they are references resolved here (see secretResolver).
-export const CAPABILITIES = ['writer', 'classifier', 'images', 'socialSearch', 'transcription', 'speech', 'models'];
-const IMPL = { writer: 'text', classifier: 'classify', images: 'image', socialSearch: 'search', transcription: 'transcribe', speech: 'speech', models: 'catalog' };
+export const CAPABILITIES = ['writer', 'classifier', 'images', 'socialSearch', 'transcription', 'speech', 'models', 'embeddings'];
+const IMPL = { writer: 'text', classifier: 'classify', images: 'image', socialSearch: 'search', transcription: 'transcribe', speech: 'speech', models: 'catalog', embeddings: 'embed' };
 
 // ctx: { agentEnv(name) -> string|null, dataDir, transport() -> fn|null, allowInlineSecrets }
 // A provider config with a bad reference must not take the app down: a refusal resolves to null, as before.

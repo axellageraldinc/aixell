@@ -19,6 +19,7 @@ db.exec(`
   );
   CREATE INDEX IF NOT EXISTS items_ready ON items (status, hidden, published DESC);
   CREATE INDEX IF NOT EXISTS items_saved ON items (saved, saved_at DESC);
+  CREATE TABLE IF NOT EXISTS item_vectors (id TEXT PRIMARY KEY, model TEXT NOT NULL, dim INTEGER NOT NULL, vec BLOB NOT NULL);
   CREATE TABLE IF NOT EXISTS kv (k TEXT PRIMARY KEY, v TEXT NOT NULL);
   CREATE TABLE IF NOT EXISTS signals (id TEXT NOT NULL, kind TEXT NOT NULL, ms INTEGER, at INTEGER NOT NULL);
   CREATE INDEX IF NOT EXISTS signals_at ON signals (at);
@@ -98,7 +99,11 @@ export const markSkipped = (id) => stmts.drop.run(id);
 export const setReader = (id, text) => stmts.setReader.run(text, id);
 export const recordHealth = (source, ok, error, count) => stmts.health.run({ source, ok: ok ? 1 : 0, fails: ok ? 0 : 1, last_ok: ok ? Date.now() : null, error: error ? String(error).slice(0, 160) : null, count });
 export const healthAll = () => stmts.healthAll.all();
-export const purge = (before) => stmts.purge.run(before);
+export function purge(before) {
+  const out = stmts.purge.run(before);
+  db.exec('DELETE FROM item_vectors WHERE id NOT IN (SELECT id FROM items)');
+  return out;
+}
 export function setFlag(kind, id, value) {
   if (kind === 'saved') stmts.setFlag.saved.run(value ? 1 : 0, value ? Date.now() : null, id);
   else if (kind === 'hidden') stmts.setFlag.hidden.run(value ? 1 : 0, id);
@@ -216,3 +221,33 @@ export function glossaryPut({ term, decision, source, bad = null, form = null },
   return db.prepare(sql).run(term, decision, source, bad ? JSON.stringify(bad) : null, form, now);
 }
 export const glossaryHit = (terms) => { const s = db.prepare('UPDATE glossary SET hits = hits + 1 WHERE term = ?'); for (const t of terms) s.run(t); };
+
+// ---------- embeddings (vectors.js): one unit-length float32 vector per story, for search by meaning ----------
+export const vectorPut = (id, model, vec) => db.prepare('INSERT OR REPLACE INTO item_vectors (id, model, dim, vec) VALUES (?, ?, ?, ?)').run(id, model, vec.length, Buffer.from(vec.buffer, vec.byteOffset, vec.byteLength));
+export const vectorGet = (id, model) => {
+  const r = db.prepare('SELECT dim, vec FROM item_vectors WHERE id = ? AND model = ?').get(id, model);
+  return r ? new Float32Array(Uint8Array.from(r.vec).buffer, 0, r.dim) : null;
+};
+// Ready stories that have no vector for this model yet, newest first.
+export const needVectors = (model, limit) => db.prepare("SELECT i.id, i.title, i.title_local, i.summary, i.topics FROM items i LEFT JOIN item_vectors v ON v.id = i.id AND v.model = ? WHERE i.status = 'ready' AND i.hidden = 0 AND v.id IS NULL ORDER BY i.ready_at DESC LIMIT ?").all(model, limit);
+// Every vector of a model for visible ready stories (optionally one category, or saved ones only).
+export function vectorPool(model, { cat = '', saved = false } = {}) {
+  const where = ["i.status = 'ready'", 'i.hidden = 0', 'v.model = ?'];
+  const args = [model];
+  if (cat) { where.push('i.cat = ?'); args.push(cat); }
+  if (saved) where.push('i.saved = 1');
+  return db.prepare(`SELECT v.id, v.dim, v.vec FROM item_vectors v JOIN items i ON i.id = v.id WHERE ${where.join(' AND ')}`).all(...args)
+    .map((r) => ({ id: r.id, vec: new Float32Array(Uint8Array.from(r.vec).buffer, 0, r.dim) }));
+}
+export const vectorStats = (model) => db.prepare("SELECT (SELECT count(*) FROM item_vectors WHERE model = ?) AS embedded, (SELECT count(*) FROM items WHERE status = 'ready' AND hidden = 0) AS ready").get(model);
+// The fallback of search when there is no embedding provider: stories whose title, summary or topics hold every word.
+export function searchWords(text, { cat = '', saved = false, limit = 20 } = {}) {
+  const words = String(text ?? '').toLowerCase().split(/[^\p{L}\p{N}]+/u).filter((w) => w.length > 1).slice(0, 6);
+  if (!words.length) return [];
+  const where = ["status = 'ready'", 'hidden = 0'];
+  const args = [];
+  for (const w of words) { where.push("lower(coalesce(title, '') || ' ' || coalesce(title_local, '') || ' ' || coalesce(summary, '') || ' ' || coalesce(topics, '')) LIKE ? ESCAPE '\\'"); args.push(`%${w.replace(/[\\%_]/g, (c) => `\\${c}`)}%`); }
+  if (cat) { where.push('cat = ?'); args.push(cat); }
+  if (saved) where.push('saved = 1');
+  return db.prepare(`SELECT id FROM items WHERE ${where.join(' AND ')} ORDER BY published DESC LIMIT ?`).all(...args, limit).map((r) => ({ id: r.id, score: 0 }));
+}

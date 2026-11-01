@@ -1,7 +1,7 @@
 // The provider contracts (JSDoc only). A provider INSTANCE is built from one entry of the `providers` config and may
 // implement any of the capability objects below. The registry (registry.js) binds capabilities to instances.
 //
-// Capability names (config key under `capabilities`): writer, classifier, images, socialSearch, transcription, speech, models.
+// Capability names (config key under `capabilities`): writer, classifier, images, socialSearch, transcription, speech, models, embeddings.
 //
 // ProviderInstance: { id, type, text?, classify?, image?, search?, transcribe?, speech?, catalog? }
 //
@@ -24,6 +24,8 @@
 // transcribe.transcribe({ audio: Buffer, mime, hint?, model?, timeoutMs? }) -> Promise<{ text }>
 //
 // speech.synthesize({ text, model?, voice?, speed?, format?, timeoutMs? }) -> Promise<{ audio: Buffer, mime }>   (text to speech)
+//
+// embed.embed({ input: string[], model, timeoutMs? }) -> Promise<number[][]>   (one vector per input, same order; an OpenAI style /embeddings endpoint, an API key is optional)
 //
 // catalog: load(), listModels({ currentModel }), priceOf(modelId), currency(), usage?({ provider, currentModel })
 export {};

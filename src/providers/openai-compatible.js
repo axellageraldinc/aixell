@@ -19,6 +19,7 @@ export class OpenAICompatible {
     this.image = { generate: (req) => this.#generate(req) };
     this.transcribe = { transcribe: (req) => this.#transcribe(req) };
     this.speech = { synthesize: (req) => this.#synthesize(req) };
+    this.embed = { embed: (req) => this.#embed(req) };
     this.catalog = new CatalogBase(this);
   }
 
@@ -46,6 +47,27 @@ export class OpenAICompatible {
     if (!response) throw noKey();
     if (!response.ok) throw new ProviderError(`${model} ${response.status}`, { status: response.status, retryAfter: retryAfterOf(response) });
     return { text: String((await response.json())?.choices?.[0]?.message?.content ?? '') };
+  }
+
+  // /embeddings. Unlike the other calls this works without an API key (a local embedding server needs none).
+  async #embed({ input, model, timeoutMs = 20_000 }) {
+    const key = this.key();
+    let res;
+    try {
+      res = await fetch(`${this.baseUrl}/embeddings`, {
+        method: 'POST',
+        headers: { ...(key ? { Authorization: `Bearer ${key}` } : {}), 'Content-Type': 'application/json', 'User-Agent': this.userAgent },
+        body: JSON.stringify({ model, input }),
+        signal: AbortSignal.timeout(timeoutMs),
+      });
+    } catch {
+      throw new ProviderError('Embedding timed out.', { kind: 'timeout' });
+    }
+    if (!res.ok) throw new ProviderError(`${model} ${res.status}`, { status: res.status, retryAfter: retryAfterOf(res) });
+    const data = (await res.json())?.data;
+    const vectors = Array.isArray(data) ? [...data].sort((a, b) => (a.index ?? 0) - (b.index ?? 0)).map((d) => d.embedding) : [];
+    if (vectors.length !== input.length || vectors.some((v) => !Array.isArray(v) || !v.length)) throw new ProviderError('The embedding server returned the wrong number of vectors.', { kind: 'empty' });
+    return vectors;
   }
 
   async #generate({ prompt, model, size = '1024x1024', timeoutMs = 100_000 }) {

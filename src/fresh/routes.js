@@ -6,7 +6,7 @@ import { reloadCategories } from './profile.js';
 import { categoryEditorView, saveCategories } from './categories.js';
 import { ingest as ingestConnector } from '../connectors/ingest.js';
 import * as glossary from './glossary.js';
-import { actOn, addSource, bootstrapProgress, runBootstrap, runXSlots, freshStatus, getFreshSettings, hasImage, imageFile, ingest, ingestToken, listFresh, localeInfo, markSeen, pollFresh, readerOf, refreshNow, removeSource, setFreshSettings, signalOn, sourcesView, toggleSource } from './index.js';
+import { actOn, addSource, bootstrapProgress, runBootstrap, runXSlots, freshStatus, getFreshSettings, hasImage, imageFile, ingest, ingestToken, listFresh, localeInfo, searchFresh, similarFresh, embeddingStatus, markSeen, pollFresh, readerOf, refreshNow, removeSource, setFreshSettings, signalOn, sourcesView, toggleSource } from './index.js';
 
 const ID = /^[a-f0-9]{16}$/;
 const same = (a, b) => { const x = Buffer.from(String(a)); const y = Buffer.from(String(b)); return x.length === y.length && crypto.timingSafeEqual(x, y); };
@@ -67,6 +67,12 @@ export async function freshRoute(req, res, url) {
     const mode = url.searchParams.get('mode') === 'latest' ? 'latest' : 'foryou';
     return sendTagged(req, res, listFresh({ cat, mode, saved: url.searchParams.get('saved') === '1', cursor: (url.searchParams.get('cursor') ?? '').slice(0, 60), limit: Number(url.searchParams.get('limit')) || 12 }));
   }
+  if (a === 'search' && method === 'GET') {
+    const text = (url.searchParams.get('q') ?? '').trim().slice(0, 300);
+    if (!text) throw new HttpError(400, 'Pass ?q= with what to look for.', 'bad_query');
+    return sendJson(res, 200, await searchFresh(text, { cat: url.searchParams.get('cat') ?? '', saved: url.searchParams.get('saved') === '1', limit: Number(url.searchParams.get('limit')) || 20 }));
+  }
+  if (a === 'embeddings' && method === 'GET') return sendJson(res, 200, { embeddings: embeddingStatus() });
   if (a === 'poll' && method === 'GET') return sendJson(res, 200, pollFresh(Number(url.searchParams.get('since')) || 0));
   if (a === 'status' && method === 'GET') return sendJson(res, 200, freshStatus());
   // Never waits for gathering: wakes the worker and answers at once (X is never called from here).
@@ -123,6 +129,11 @@ export async function freshRoute(req, res, url) {
     if (b === 'reader' && method === 'GET') {
       const out = await readerOf(a);
       if (!out) throw new HttpError(404, 'Item not found.', 'no_item');
+      return sendJson(res, 200, out);
+    }
+    if (b === 'similar' && method === 'GET') {
+      const out = similarFresh(a, Number(url.searchParams.get('limit')) || 10);
+      if (!out) throw new HttpError(404, 'No embedding for this story (yet).', 'no_embedding');
       return sendJson(res, 200, out);
     }
     if (b === 'signal' && method === 'POST') {

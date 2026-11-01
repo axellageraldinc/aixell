@@ -95,7 +95,7 @@ These keep working exactly as before and override the file:
 
 Providers are read from `data/providers.json` (not from `config.json`): `{ "providers": {...}, "capabilities": {...} }`.
 Each provider has an id, a `type` and its own settings; secrets are references (see above). A capability
-(`writer`, `classifier`, `images`, `socialSearch`, `transcription`, `speech`, `models`) names the provider that serves it. Without the file
+(`writer`, `classifier`, `images`, `socialSearch`, `transcription`, `speech`, `models`, `embeddings`) names the provider that serves it. Without the file
 no capability is available and the Feed falls back to keyword heuristics.
 
 Built-in types: `openai-compatible`, `x-api`, `null` (and `mock-gateway`, a fake used by the offline sandbox and the tests).
@@ -108,6 +108,9 @@ A `speech` capability (text to speech, an OpenAI style `/audio/speech` endpoint)
 ```json
 { "capabilities": { "speech": { "provider": "gateway", "model": "tts-1", "voice": "alloy" } } }
 ```
+
+An `embeddings` capability (an OpenAI style `/embeddings` endpoint, API key optional) lets the Feed search stories by meaning:
+`{ "embeddings": { "provider": "local-embed", "model": "bge-m3" } }`. Without it, search falls back to words.
 
 The speech capability may also name a `chatModel`: the model (or, on a routing gateway, the preset) the agent is asked for on a
 voice turn instead of the one picked in the chat, for example a pool of fast models, because a spoken answer is waited for. Only

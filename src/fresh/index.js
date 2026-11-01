@@ -27,6 +27,7 @@ import { timezone } from '../time.js';
 import { resolveItems } from './links.js';
 import { groupThreads } from './threads.js';
 import * as store from './store.js';
+import * as vectors from './vectors.js';
 import { createScheduler } from '../scheduler/scheduler.js';
 
 // "Fresh": the home timeline of the Feed style. A background worker gathers stories from feeds, Bluesky search, X (paid, rationed,
@@ -503,7 +504,9 @@ async function finishCycle(cycleStart) {
 async function round() {
   const kept = await triageNew();
   await groupThreads(agent).catch((err) => console.warn(`[fresh] threads failed: ${err.message}`));
-  return { kept, made: await enrich() };
+  const made = await enrich();
+  await vectors.embedPending(agent).catch((err) => console.warn(`[fresh] embedding failed: ${err.message}`));
+  return { kept, made };
 }
 async function drain() {
   let made = 0;
@@ -713,6 +716,24 @@ export function listFresh({ cat = '', saved = false, cursor = '', limit = 12, mo
   const last = rows.at(-1);
   return { items: rows.map(present), next: more && last ? `${saved ? last.saved_at : last.published}:${last.id}` : '', newest, mode: saved ? 'saved' : 'latest', catOrder: catOrder(), ...localeInfo() };
 }
+// Search by meaning (words when no embedding provider answers). Best first; each item carries its similarity.
+export async function searchFresh(text, { cat = '', saved = false, limit = 20 } = {}) {
+  limit = Math.max(1, Math.min(50, limit));
+  const c = CATEGORIES[cat] ? cat : '';
+  const hits = await vectors.search(agent, text, { cat: c, saved, limit });
+  const mode = hits ? 'meaning' : 'words';
+  const found = hits ?? store.searchWords(text, { cat: c, saved, limit });
+  const byId = new Map(store.rowsByIds(found.map((h) => h.id)).map((r) => [r.id, r]));
+  const items = found.filter((h) => byId.has(h.id)).map((h) => ({ ...present(byId.get(h.id)), similarity: Math.round(h.score * 1000) / 1000 }));
+  return { items, mode, ...localeInfo() };
+}
+export const similarFresh = (id, limit = 10) => {
+  const hits = vectors.similar(agent, id, { limit });
+  if (!hits) return null;
+  const byId = new Map(store.rowsByIds(hits.map((h) => h.id)).map((r) => [r.id, r]));
+  return { items: hits.filter((h) => byId.has(h.id)).map((h) => ({ ...present(byId.get(h.id)), similarity: Math.round(h.score * 1000) / 1000 })) };
+};
+export const embeddingStatus = () => vectors.coverage(agent);
 export const pollFresh = (since) => ({ count: store.countSince(since), newest: store.newestReady().t ?? 0, running: Boolean(running) });
 export const freshStatus = () => ({
   ...lastRun, running: Boolean(running), enabled: settings.enabled, ...store.stats(), queue: store.queueSizes(), llm: llmUsage(agent),
