@@ -31,7 +31,7 @@ const CARD_W = W - CARD_X * 2;
 const PAD = 60;
 const INNER = CARD_W - PAD * 2;
 const BRAND_H = 110; // brand row above the card
-const FOOT_H = 100; // line below the card
+const FOOT_H = 0; // nothing below the card
 const LABEL = 50; // "YOU" above the first prompt
 const HEAD = 96; // avatar row above the first reply
 const RULE = 56; // between a prompt and its reply
@@ -120,11 +120,6 @@ export function renderStory({ turns, assistant }) {
     row.r.forEach((line, k) => drawRichLine(ctx, line, x, y + m.size + k * m.lead - m.size * 0.1, { size: m.size, weight: 400, family: FONT, color: COLORS.text, underline: COLORS.underline }));
     y += row.r.length * m.lead + (i < m.rows.length - 1 ? TURN_GAP : 0);
   });
-
-  ctx.textAlign = 'center';
-  ctx.fillStyle = 'rgba(255,255,255,0.85)';
-  ctx.font = `600 32px ${FONT}`;
-  ctx.fillText(t('story.tagline'), W / 2, top + BRAND_H + m.total + 72);
 
   return new Promise((resolve, reject) => canvas.toBlob((b) => (b ? resolve({ blob: b, canvas }) : reject(new Error('could not render the image'))), 'image/png'));
 }

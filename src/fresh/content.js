@@ -1,19 +1,25 @@
 // The content settings of the feed: the language the cards are written in, the writer limits and
 // the category list as the prompts see it.
 //
-//   fresh.content { language, languageCode, locale }   defaults English / en / en-US
+//   fresh.content { language, languageCode, locale, keepLanguages }   defaults English / en / en-US / []
+//     keepLanguages: names of languages whose articles keep their own language on the card (e.g. ["German"]).
 //   fresh.writer  { titleMax, summaryMaxWords, whyMaxWords }
 //
 // The UI language is a separate axis (see public/locales/): this is the language of the cards.
 import { config } from '../config.js';
 import { CATEGORY_DEFS } from './profile.js';
 
-export const CONTENT_DEFAULTS = { language: 'English', languageCode: 'en', locale: 'en-US' };
+export const CONTENT_DEFAULTS = { language: 'English', languageCode: 'en', locale: 'en-US', keepLanguages: [] };
 export const WRITER_DEFAULTS = { titleMax: 90, summaryMaxWords: 55, whyMaxWords: 18 };
 
 export const content = () => ({ ...CONTENT_DEFAULTS, ...(config.fresh?.content ?? {}) });
 export const writerLimits = () => ({ ...WRITER_DEFAULTS, ...(config.fresh?.writer ?? {}) });
 export const language = () => content().language;
+// Prompt text for keepLanguages ('' when none).
+export const keepText = () => {
+  const keep = content().keepLanguages;
+  return Array.isArray(keep) && keep.length ? keep.join(' or ') : '';
+};
 
 // "id: label (meaning)" lines for the classifier and the writer, in the configured order.
 export function categoriesText() {

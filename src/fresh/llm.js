@@ -1,5 +1,5 @@
 import { CAT_IDS, CATEGORIES, CATEGORY_DEFS, PROFILE, guessCat, hardBan, keywordRelevance, unwanted } from './profile.js';
-import { CARD_SCHEMA, categoriesText, content, language, writerLimits } from './content.js';
+import { CARD_SCHEMA, categoriesText, content, keepText, language, writerLimits } from './content.js';
 import { isMeta } from './meta.js';
 import { render } from './prompts.js';
 import { dayKey } from '../time.js';
@@ -201,6 +201,7 @@ export async function chatChain(agent, opts, parse) {
 // limits are configuration, not code. The JSON keys are the same in every language.
 const writerPrompt = () => render('writer', {
   language: language(),
+  keepRule: keepText() ? `- If the article itself is written in ${keepText()}, write the title, summary and why in that same language instead of ${language()} (keep its wording natural; do not translate it).\n` : '',
   profile: PROFILE,
   categories: categoriesText(),
   schema: CARD_SCHEMA,
@@ -250,7 +251,7 @@ async function qualityCheck(agent, batch, cards) {
     q[`ok:${b.id}`] = {
       type: 'noul',
       instructions: { item: `SOURCE (${b.sourceName}): ${b.title}\n${(b.text || b.description || b.snippet || '').slice(0, 1800)}\n\nCARD:\nTitle: ${c.title_local}\nSummary: ${c.summary}\nWhy: ${c.why}`, question: 'Is the card well written?' },
-      criteria: { true: `acceptable: readable ${language()}, technical terms left in English where natural, the facts come from the source, neutral tone`, false: `clearly bad: stiff or machine-translated ${language()}, absurdly translated technical terms, facts that contradict or are missing from the source, hype or clickbait wording, or sentences about the text itself` },
+      criteria: { true: `acceptable: readable ${language()}${keepText() ? ` (or ${keepText()} when the source article is in that language)` : ''}, technical terms left in English where natural, the facts come from the source, neutral tone`, false: `clearly bad: stiff or machine-translated ${language()}, absurdly translated technical terms, facts that contradict or are missing from the source, hype or clickbait wording, or sentences about the text itself` },
     };
   }
   const answers = await systemOne(agent, q, render('quality', { language: language(), profile: PROFILE }));

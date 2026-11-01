@@ -12,6 +12,7 @@ const { render, template, PROMPT_DIR } = await import('../../src/fresh/prompts.j
 test('render fills every slot', () => {
   const text = render('writer', {
     language: 'German',
+    keepRule: '',
     profile: 'A reader.',
     categories: 'ai: AI',
     schema: '{"id":"..."}',
@@ -27,7 +28,7 @@ test('render fills every slot', () => {
 
 test('render: an unknown slot is an error, a missing value is an error', () => {
   assert.throws(() => render('dedupe', { language: 'German' }), /has no slot/);
-  assert.throws(() => render('writer', { language: 'German', profile: 'x', categories: 'y', schema: 'z', titleMax: 1, summaryMaxWords: 1 }), /needs a value for \{\{whyMaxWords\}\}/);
+  assert.throws(() => render('writer', { language: 'German', keepRule: '', profile: 'x', categories: 'y', schema: 'z', titleMax: 1, summaryMaxWords: 1 }), /needs a value for \{\{whyMaxWords\}\}/);
   assert.throws(() => render('no-such-template'), /is missing/);
 });
 
@@ -42,7 +43,7 @@ test('every shipped prompt is English and language-neutral', () => {
 });
 
 test('the writer template asks for the language it is given, in every slot it uses', () => {
-  const text = render('writer', { language: 'Brazilian Portuguese', profile: 'p', categories: 'c', schema: 's', titleMax: 80, summaryMaxWords: 40, whyMaxWords: 12 });
+  const text = render('writer', { language: 'Brazilian Portuguese', keepRule: '', profile: 'p', categories: 'c', schema: 's', titleMax: 80, summaryMaxWords: 40, whyMaxWords: 12 });
   assert.match(text, /Brazilian Portuguese/);
   assert.match(text, /80 characters/);
   assert.match(text, /40 words/);

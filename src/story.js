@@ -91,7 +91,7 @@ export async function storyText(agent, { turns, instruction, scope } = {}) {
   if (ask.length > INSTRUCTION_MAX) throw new HttpError(400, `Keep the instruction under ${INSTRUCTION_MAX} characters.`, 'story_bad_instruction');
   const input = flat.map((x) => ({ prompt: x.prompt.slice(0, IN_MAX), reply: x.reply.slice(0, IN_MAX) }));
   const side = scope === 'prompt' || scope === 'reply' ? scope : 'both';
-  const opts = { maxTokens: 400 * n + 400, timeoutMs: 30_000 };
+  const opts = { maxTokens: 400 * n + 400, timeoutMs: 15_000 }; // a normal call takes 3-9 s; a stalled one is retried sooner
   // An instruction always goes to the model: there is no honest fallback for "rephrase" or "make it funnier".
   if (ask) {
     try {

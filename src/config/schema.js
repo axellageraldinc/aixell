@@ -27,7 +27,7 @@ const SERVER_KEYS = ['port', 'hosts', 'allowedHosts', 'trustCloudflare', 'cookie
 const PUSH_KEYS = ['subject'];
 const CONNECTOR_KEYS = ['id', 'type', 'enabled', 'cat', 'limit', 'config', 'credentials', 'schedule', 'name', 'stack'];
 const FRESH_KEYS = ['content', 'categories', 'taste', 'filters', 'writer'];
-const CONTENT_KEYS = ['language', 'languageCode', 'locale'];
+const CONTENT_KEYS = ['language', 'languageCode', 'locale', 'keepLanguages'];
 const CATEGORY_KEYS = ['id', 'label', 'halfLifeHours', 'keywords'];
 const KEYWORD_KEYS = ['pos', 'neg'];
 const TASTE_KEYS = ['profile'];
@@ -82,7 +82,10 @@ function validateFresh(input, errors, warnings) {
       }
       for (const key of CONTENT_KEYS) {
         if (input.content[key] === undefined) continue;
-        if (isString(input.content[key])) content[key] = input.content[key];
+        if (key === 'keepLanguages') {
+          if (isStringArray(input.content[key])) content[key] = input.content[key];
+          else errors.push(`fresh.content.${key}: must be a list of non-empty strings`);
+        } else if (isString(input.content[key])) content[key] = input.content[key];
         else errors.push(`fresh.content.${key}: must be a non-empty string`);
       }
       out.content = content;

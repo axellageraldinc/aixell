@@ -478,7 +478,6 @@ export default {
   'story.reply': 'Reply',
   'story.shortening': 'Shortening the exchange to fit one story…',
   'story.shortened': 'Shortened to fit one story. Edit the text if you like.',
-  'story.tagline': 'A chat with my AI',
   'story.ask': 'Ask the AI to change it',
   'story.ask.placeholder': 'Tell the AI what to change, then press Apply',
   'story.ask.apply': 'Apply',
