@@ -74,18 +74,52 @@ export function mix(items, { cat = '', seed = 'x' } = {}) {
   return out;
 }
 
-export function rankIds({ cat = '', now = Date.now(), seed = 'x' } = {}) {
+// Stops one topic from filling the feed. Greedy: the best story first; every story that is about the same thing as
+// one already chosen is worth `factor` times less per such story (the first neighbour 0.6x, the second 0.36x ...), so a
+// cluster of ten near-identical stories is spread out through the scroll instead of arriving one after another.
+// items: sorted best first, each { id, score }; vecs: Map id -> unit vector. Stories without a vector keep their score.
+export function diversify(items, vecs, { threshold = 0.6, factor = 0.6, head = 300 } = {}) {
+  if (!vecs?.size) return items;
+  const top = items.slice(0, head);
+  const rest = items.slice(head);
+  const crowd = new Array(top.length).fill(0);
+  const left = top.map((_, i) => i);
+  const out = [];
+  while (left.length) {
+    let best = 0;
+    let bestScore = -1;
+    for (let k = 0; k < left.length; k += 1) {
+      const eff = top[left[k]].score * factor ** crowd[left[k]];
+      if (eff > bestScore) { bestScore = eff; best = k; }
+    }
+    const [i] = left.splice(best, 1);
+    out.push({ ...top[i], score: bestScore });
+    const a = vecs.get(top[i].id);
+    if (!a) continue;
+    for (const j of left) {
+      const b = vecs.get(top[j].id);
+      if (!b) continue;
+      let dot = 0;
+      for (let d = 0; d < a.length; d += 1) dot += a[d] * b[d];
+      if (dot >= threshold) crowd[j] += 1;
+    }
+  }
+  return [...out, ...rest];
+}
+
+export function rankIds({ cat = '', now = Date.now(), seed = 'x', vecsOf = null } = {}) {
   const pool = store.rankPool(now - WINDOW_MS, CATEGORIES[cat] ? cat : '');
   const scored = pool.map((row) => ({ id: row.id, cat: row.cat, source: row.source, thread: row.thread || '', rel: row.rel ?? 0.4, seen: Boolean(row.seen_at || row.read_at), score: scoreRow(row, { now }) }))
     .sort((a, b) => b.score - a.score).slice(0, POOL_MAX);
   const opts = { cat: CATEGORIES[cat] ? cat : '', seed };
-  return [...mix(scored.filter((s) => !s.seen), opts), ...mix(scored.filter((s) => s.seen), opts)].map((s) => s.id);
+  const spread = (list) => (vecsOf ? diversify(list, vecsOf(list.slice(0, 300).map((s) => s.id))) : list);
+  return [...mix(spread(scored.filter((s) => !s.seen)), opts), ...mix(spread(scored.filter((s) => s.seen)), opts)].map((s) => s.id);
 }
 
 // -> { ids, snapshot }. Frozen until it expires.
-export function newSnapshot(cat = '') {
+export function newSnapshot(cat = '', vecsOf = null) {
   const id = crypto.randomBytes(5).toString('hex');
-  const ids = rankIds({ cat, seed: id });
+  const ids = rankIds({ cat, seed: id, vecsOf });
   store.saveSnapshot(id, cat, ids);
   return { id, ids };
 }
@@ -96,15 +130,15 @@ export function parseCursor(cursor) {
 }
 
 // One page of a snapshot. An expired snapshot (or a cursor from before) is rebuilt and continues at the same offset.
-export function forYouPage({ cat = '', cursor = '', limit = PAGE } = {}) {
+export function forYouPage({ cat = '', cursor = '', limit = PAGE, vecsOf = null } = {}) {
   let snap = null;
   let offset = 0;
   const c = parseCursor(cursor);
   if (c) {
     const ids = store.loadSnapshot(c.id);
     if (ids) { snap = { id: c.id, ids }; offset = c.offset; }
-    else { snap = newSnapshot(cat); offset = c.offset; }
-  } else snap = newSnapshot(cat);
+    else { snap = newSnapshot(cat, vecsOf); offset = c.offset; }
+  } else snap = newSnapshot(cat, vecsOf);
   const slice = snap.ids.slice(offset, offset + limit);
   const rows = store.rowsByIds(slice);
   const end = offset + limit;

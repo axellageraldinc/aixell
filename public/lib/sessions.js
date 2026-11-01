@@ -5,6 +5,7 @@ import { state, emit, on, runningSessionIds } from './state.js';
 import { statusBlock, skeletonRows, notify } from './ui.js';
 import { sessionRow, sessionTitle } from './session-row.js';
 import { t } from './i18n.js';
+import { agoShort } from './fresh-feed.js';
 
 const PAGE_SIZE = 50;
 const DAY_MS = 86400000;
@@ -12,6 +13,7 @@ const listEl = $('#session-list');
 const searchEl = $('#session-search');
 let requestId = 0; // drops stale responses when agent changes mid-flight
 let hits = { query: '', status: 'idle', results: [] }; // matches inside chat contents (server-side search)
+let feedHits = { query: '', status: 'idle', items: [] }; // stories of the Feed found by meaning
 let hitTimer = 0;
 let hitId = 0;
 
@@ -86,8 +88,10 @@ function render() {
     return;
   }
   const contentSection = query.length >= 2 ? contentHits(query) : null;
+  const feedSection = query.length >= 2 ? feedHitsSection(query) : null;
+  const extra = [feedSection, contentSection].filter(Boolean);
   if (visible.length === 0) {
-    listEl.replaceChildren(...(contentSection ? [contentSection] : [statusBlock({ kind: 'empty', text: t('sessions.noMatches') })]));
+    listEl.replaceChildren(...(extra.length ? extra : [statusBlock({ kind: 'empty', text: t('sessions.noMatches') })]));
     return;
   }
 
@@ -103,7 +107,7 @@ function render() {
   if (state.sessionsHasMore) {
     children.push(h('button', { type: 'button', className: 'btn btn-sm btn-ghost load-more', onClick: () => loadSessions({ append: true }) }, t('sessions.loadMore')));
   }
-  if (contentSection) children.push(contentSection);
+  children.push(...extra);
   listEl.replaceChildren(...children);
   markRunning();
 }
@@ -150,14 +154,48 @@ function contentHits(query) {
   );
 }
 
+// "From your feed": stories found by meaning (the server falls back to words when it has no embeddings). Opens the reader.
+function feedHitsSection(query) {
+  if (feedHits.query !== query || feedHits.status === 'loading') return h('div', { className: 'session-group hits' }, h('h3', {}, t('sessions.search.feed')), h('p', { className: 'hit-note' }, t('sessions.search.searching')));
+  if (feedHits.status === 'error') return null;
+  if (!feedHits.items.length) return h('div', { className: 'session-group hits' }, h('h3', {}, t('sessions.search.feed')), h('p', { className: 'hit-note' }, t('sessions.search.noFeed')));
+  return h(
+    'div',
+    { className: 'session-group hits' },
+    h('h3', {}, t('sessions.search.feed')),
+    feedHits.items.map((item) =>
+      h(
+        'button',
+        { type: 'button', className: 'hit-row', 'data-testid': 'feed-hit', 'data-id': item.id, onClick: () => openFeedHit(item) },
+        h('span', { className: 'hit-title' }, h('span', { className: 'hit-name' }, item.title)),
+        h('span', { className: 'hit-snippet' }, `${item.sourceName} · ${agoShort(item.ts)}${item.summary ? ` — ${item.summary}` : ''}`),
+      ),
+    ),
+  );
+}
+
+function openFeedHit(item) {
+  const ask = (story) => {
+    emit('session:select', null);
+    const text = t('feed.ask.prompt', { title: story.original || story.title, url: story.url });
+    setTimeout(() => window.dispatchEvent(new CustomEvent('hermes:shared', { detail: { text } })), 250);
+  };
+  import('./fresh-reader.js').then(({ openReader }) => openReader({ id: item.id, item, ask, onSave: (saved) => { item.saved = saved; } }));
+}
+
 function searchContent() {
   clearTimeout(hitTimer);
   const query = searchEl.value.trim().toLowerCase();
-  if (query.length < 2) { hits = { query: '', status: 'idle', results: [] }; return; }
+  if (query.length < 2) { hits = { query: '', status: 'idle', results: [] }; feedHits = { query: '', status: 'idle', items: [] }; return; }
   const mine = ++hitId;
   hitTimer = setTimeout(async () => {
     hits = { query, status: 'loading', results: [] };
+    feedHits = { query, status: 'loading', items: [] };
     render();
+    api(`/api/fresh/search?${new URLSearchParams({ q: query, limit: '8' })}`)
+      .then((res) => { if (mine === hitId) feedHits = { query, status: 'done', items: res.items ?? [] }; })
+      .catch(() => { if (mine === hitId) feedHits = { query, status: 'error', items: [] }; })
+      .then(() => { if (mine === hitId) render(); });
     try {
       const res = await api(`${agentPath(state.agent)}/search?${new URLSearchParams({ q: query, source: state.source })}`);
       if (mine !== hitId) return;

@@ -79,3 +79,12 @@ test('a server error stops the run without throwing and leaves the story for the
   assert.equal(store.vectorGet(late, 'fake'), null);
   compat.setProviderConfig(null);
 });
+
+test('diversify spreads a cluster of near-identical stories instead of listing them in a row', async () => {
+  const { diversify } = await import('../../src/fresh/timeline.js');
+  const unit = (...v) => { const n = Math.hypot(...v); return Float32Array.from(v.map((x) => x / n)); };
+  const vecs = new Map([['a1', unit(1, 0.05)], ['a2', unit(1, 0.1)], ['a3', unit(1, 0.15)], ['b', unit(0.05, 1)], ['c', unit(-1, 0.3)]]);
+  const items = [{ id: 'a1', score: 1 }, { id: 'a2', score: 0.95 }, { id: 'a3', score: 0.9 }, { id: 'b', score: 0.7 }, { id: 'c', score: 0.5 }];
+  assert.deepEqual(diversify(items, vecs).map((i) => i.id), ['a1', 'b', 'a2', 'c', 'a3']);
+  assert.deepEqual(diversify(items, new Map()).map((i) => i.id), items.map((i) => i.id), 'no vectors, no change');
+});

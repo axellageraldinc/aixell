@@ -539,6 +539,8 @@ export default {
   'sessions.row.print': 'Print / save as PDF',
   'sessions.row.rename': 'Rename',
   'sessions.row.titlePlaceholder': 'Chat title',
+  'sessions.search.feed': 'From your feed',
+  'sessions.search.noFeed': 'No stories in your feed match.',
   'sessions.search.failed': 'Search failed. Try again.',
   'sessions.search.inside': 'Inside messages',
   'sessions.search.noMatches': 'No message text matches.',

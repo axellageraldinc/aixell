@@ -5,6 +5,8 @@ import * as store from './store.js';
 // the vectors are stored unit-length in fresh.db, so cosine similarity is a dot product. The pool is a few thousand stories at
 // most (stories are kept 14 days), so a plain scan is fast enough and needs no index.
 const BATCH = 16;
+// bge-m3 scores: unrelated texts sit near 0.35, related ones from 0.5, the same topic from about 0.6.
+export const SAME_TOPIC = 0.6;
 const MAX_TEXT = 1200;
 
 const unit = (values) => {
@@ -42,7 +44,7 @@ export async function embedPending(agent, limit = 64) {
   for (let i = 0; i < rows.length; i += BATCH) {
     const batch = rows.slice(i, i + BATCH);
     try {
-      const vectors = await e.embed({ input: batch.map(textOf), model: e.model });
+      const vectors = await e.embed({ input: batch.map(textOf), model: e.model, timeoutMs: 60_000 });
       batch.forEach((row, k) => store.vectorPut(row.id, e.model, unit(vectors[k])));
       done += batch.length;
     } catch (err) {
@@ -64,7 +66,7 @@ function rank(pool, query, limit, minScore, skip = null) {
 }
 
 // -> [{ id, score }] best first, or null when search by meaning is not available (no provider, or the server is down).
-export async function search(agent, text, { cat = '', saved = false, limit = 20, minScore = 0.3 } = {}) {
+export async function search(agent, text, { cat = '', saved = false, limit = 20, minScore = 0.5 } = {}) {
   const e = embedder(agent);
   const q = String(text ?? '').trim().slice(0, 300);
   if (!e || !q) return null;
@@ -78,6 +80,14 @@ export function similar(agent, id, { limit = 10, minScore = 0.5 } = {}) {
   const e = embedder(agent);
   const own = e ? store.vectorGet(id, e.model) : null;
   return own ? rank(store.vectorPool(e.model), own, limit, minScore, id) : null;
+}
+
+// id -> unit vector for the given stories (those without one are missing from the map).
+export function vectorsFor(agent, ids) {
+  const e = embedder(agent);
+  const map = new Map();
+  if (e) for (const id of ids) { const v = store.vectorGet(id, e.model); if (v) map.set(id, v); }
+  return map;
 }
 
 export const coverage = (agent) => { const e = embedder(agent); return e ? { model: e.model, ...store.vectorStats(e.model) } : null; };

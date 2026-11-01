@@ -709,7 +709,7 @@ export function listFresh({ cat = '', saved = false, cursor = '', limit = 12, mo
   const newest = store.newestReady().t ?? 0;
   if (!cursor && !saved) { store.kvSet('last-open', Date.now()); store.kvSet('view-at', Date.now()); }
   if (!saved && mode !== 'latest') {
-    const out = forYouPage({ cat: c, cursor, limit });
+    const out = forYouPage({ cat: c, cursor, limit, vecsOf: (ids) => vectors.vectorsFor(agent, ids) });
     return { items: out.rows.map(present), next: out.next, newest, mode: 'foryou', snapshot: out.snapshot, total: out.total, catOrder: catOrder(), ...localeInfo() };
   }
   const { rows, more } = store.page({ cat: c, saved, cursor, limit });
