@@ -17,7 +17,7 @@ const FONT = '-apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-s
 const TOP = 250;
 const BOTTOM = H - 250;
 const SIDE = 80;
-const COLORS = { bg: '#2748e0', card: '#14161b', text: '#f3f4f7', accent: '#7f9bff', muted: '#a3a9b6', rule: '#2a2e38' };
+const COLORS = { bg: '#2b5ce6', card: '#14161b', text: '#f3f4f7', accent: '#7f9bff', muted: '#a3a9b6', rule: '#2a2e38' };
 
 // Greedy word wrap; a word longer than the line is broken by letters.
 export function wrap(ctx, text, maxWidth) {
@@ -71,6 +71,31 @@ function layout(ctx, prompt, reply) {
   return null;
 }
 
+// The aixell mark (public/favicon.svg) drawn directly: a rounded tile with an "a" made of a ring, a stem and a dot.
+function logo(ctx, x, y, size, tile, ink) {
+  const k = size / 32;
+  ctx.beginPath();
+  ctx.roundRect(x, y, size, size, 8 * k);
+  ctx.fillStyle = tile;
+  ctx.fill();
+  ctx.save();
+  ctx.translate(x, y + 2.5 * k);
+  ctx.scale(k, k);
+  ctx.strokeStyle = ink;
+  ctx.fillStyle = ink;
+  ctx.lineWidth = 3;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.arc(16, 16.3, 6.2, 0, Math.PI * 2);
+  ctx.moveTo(22.2, 10.1);
+  ctx.lineTo(22.2, 22.5);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(22.2, 4.9, 1.9, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
 export function renderStory({ prompt, reply, assistant }) {
   const canvas = document.createElement('canvas');
   canvas.width = W;
@@ -85,19 +110,15 @@ export function renderStory({ prompt, reply, assistant }) {
   const block = BRAND_H + m.total + FOOT_H;
   const top = TOP + Math.max(0, (BOTTOM - TOP - block) / 2);
 
-  // brand row: a round mark and the name, on the background colour
-  ctx.beginPath();
-  ctx.arc(W / 2 - 78, top + 42, 22, 0, Math.PI * 2);
-  ctx.fillStyle = COLORS.card;
-  ctx.fill();
-  ctx.fillStyle = COLORS.bg;
-  ctx.font = `800 26px ${FONT}`;
-  ctx.textAlign = 'center';
-  ctx.fillText(APP_NAME[0].toUpperCase(), W / 2 - 78, top + 51);
+  // brand row: the logo (white tile on the brand colour) and the name
+  ctx.font = `800 44px ${FONT}`;
+  const nameW = ctx.measureText(APP_NAME).width;
+  const logoSize = 64;
+  const rowW = logoSize + 20 + nameW;
+  logo(ctx, W / 2 - rowW / 2, top + 10, logoSize, '#ffffff', COLORS.bg);
   ctx.fillStyle = '#ffffff';
-  ctx.font = `800 40px ${FONT}`;
   ctx.textAlign = 'left';
-  ctx.fillText(APP_NAME, W / 2 - 44, top + 56);
+  ctx.fillText(APP_NAME, W / 2 - rowW / 2 + logoSize + 20, top + 10 + 47);
 
   // the card
   let y = top + BRAND_H;
@@ -192,6 +213,32 @@ export async function openStoryDialog({ prompt, reply }) {
   const bot = h('textarea', { className: 'textarea story-text', rows: 6, maxLength: 800, 'aria-label': t('story.reply'), 'data-testid': 'story-reply' }, text.reply);
   const preview = h('div', { className: 'story-preview', 'data-testid': 'story-preview' });
   const message = h('p', { className: 'dlg-note', role: 'status' }, text.shortened ? t('story.shortened') : '');
+  const ask = h('input', { type: 'text', className: 'input input-sm story-ask', maxLength: 300, placeholder: t('story.ask.placeholder'), 'aria-label': t('story.ask'), 'data-testid': 'story-ask' });
+  const apply = h('button', { type: 'button', className: 'btn btn-sm', 'data-testid': 'story-ask-apply' }, t('story.ask.apply'));
+  const undo = h('button', { type: 'button', className: 'btn btn-ghost btn-sm', hidden: true, 'data-testid': 'story-undo' }, t('story.undo'));
+  const chips = [t('story.chip.english'), t('story.chip.shorter'), t('story.chip.casual'), t('story.chip.punchy')].map((label) =>
+    h('button', { type: 'button', className: 'pill story-chip', onClick: () => { ask.value = label; run(); } }, label));
+  let before = null;
+  const run = async () => {
+    const instruction = ask.value.trim();
+    if (!instruction) return;
+    apply.disabled = true;
+    message.textContent = t('story.ask.working');
+    try {
+      const next = await api(`${agentPath(state.agent)}/story`, { method: 'POST', body: { prompt: you.value, reply: bot.value, instruction } });
+      before = { prompt: you.value, reply: bot.value };
+      you.value = next.prompt;
+      bot.value = next.reply;
+      undo.hidden = false;
+      ask.value = '';
+      message.textContent = '';
+      draw();
+    } catch (err) { message.textContent = err.message; }
+    apply.disabled = false;
+  };
+  apply.addEventListener('click', run);
+  ask.addEventListener('keydown', (event) => { if (event.key === 'Enter') { event.preventDefault(); run(); } });
+  undo.addEventListener('click', () => { if (!before) return; you.value = before.prompt; bot.value = before.reply; before = null; undo.hidden = true; draw(); });
   const go = h('button', { type: 'button', className: 'btn btn-primary btn-sm', 'data-testid': 'story-share' }, t('story.share'));
   let made = null;
   let timer = 0;
@@ -220,6 +267,8 @@ export async function openStoryDialog({ prompt, reply }) {
     preview,
     h('div', { className: 'share-field' }, h('span', { className: 'share-label' }, t('story.you')), you),
     h('div', { className: 'share-field' }, h('span', { className: 'share-label' }, t('story.reply')), bot),
+    h('div', { className: 'share-field' }, h('span', { className: 'share-label' }, t('story.ask')),
+      h('div', { className: 'dlg-row' }, ask, apply, undo), h('div', { className: 'dlg-row story-chips' }, chips)),
     message,
     h('div', { className: 'dlg-row' }, go),
   );

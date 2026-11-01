@@ -32,3 +32,9 @@ test('clip never exceeds the limit and breaks at a word otherwise', () => {
   assert.ok(out.length <= 50);
   assert.match(out, /…$/);
 });
+
+test('an instruction is refused when too long, and fails honestly (no fake edit) when no model answers', async () => {
+  compat.setProviderConfig({ providers: {}, capabilities: {} });
+  await assert.rejects(storyText(agent, { prompt: 'a', reply: 'b', instruction: 'x'.repeat(301) }), { code: 'story_bad_instruction' });
+  await assert.rejects(storyText(agent, { prompt: 'a', reply: 'b', instruction: 'make it formal' }), { code: 'story_edit_failed' });
+});
