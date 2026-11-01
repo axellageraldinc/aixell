@@ -1300,6 +1300,12 @@ select.select { cursor: pointer; padding-inline: 12px 32px; border-radius: 10px;
 select.select option { background: var(--bgColor-default); color: var(--fgColor-default); padding: 8px 12px; }
 select.select option:checked { background: var(--bgColor-accent-muted); }
 
+/* Share as story */
+.story-dlg { gap: 14px; }
+.story-preview { display: flex; justify-content: center; }
+.story-canvas { width: auto; max-width: 100%; max-height: 46dvh; aspect-ratio: 9 / 16; border-radius: 16px; border: 1px solid var(--hairline); }
+.story-text { width: 100%; resize: vertical; }
+
 /* Share dialog */
 .share-dlg { gap: 14px; }
 .share-dlg .dlg-row { flex-wrap: wrap; align-items: center; gap: 8px; }

@@ -3,6 +3,7 @@ import { h } from './dom.js';
 import { icon } from './icons.js';
 import { renderMarkdown } from './markdown.js';
 import { copyWithFeedback } from './clipboard.js';
+import { openStoryDialog } from './share-story.js';
 import { fmtDateTime, fmtDuration, fmtBytes } from './format.js';
 import { openLightbox } from './lightbox.js';
 import { t } from './i18n.js';
@@ -78,7 +79,15 @@ export function assistantMeta(getText) {
       copy.replaceChildren(icon(ok ? 'check' : 'copy', 14));
     }),
   );
-  const el = h('div', { className: 'meta', hidden: true }, info, copy);
+  // The prompt is the user bubble just above this reply in the thread (history and live replies are built the same way).
+  const story = h('button', { type: 'button', className: 'ibtn ibtn-sm', 'aria-label': t('story.menu'), title: t('story.menu'), 'data-testid': 'story-open' }, icon('image', 14));
+  story.addEventListener('click', () => {
+    let node = story.closest('.msg-assistant')?.previousElementSibling;
+    while (node && !node.classList.contains('msg-user')) node = node.previousElementSibling;
+    const prompt = node?.querySelector('.user-body')?.innerText?.trim();
+    if (prompt) openStoryDialog({ prompt, reply: getText() });
+  });
+  const el = h('div', { className: 'meta', hidden: true }, info, copy, story);
   return {
     el,
     update({ timestamp = null, duration = null } = {}) {
