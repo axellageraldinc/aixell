@@ -59,3 +59,9 @@ test('the model may rewrite only the side that was asked for: the other side is 
   const onlyPrompt = await storyText(agent, { turns, instruction: 'x', scope: 'prompt' });
   assert.deepEqual(onlyPrompt.turns, [{ prompt: 'CHANGED prompt', reply: 'the ai reply' }]);
 });
+
+test('formatting markers written on the story survive an edit, but are stripped from chat text', async () => {
+  const { plain, keep } = await import('../../src/story.js');
+  assert.equal(plain('a **b** __c__ ~~d~~ *e* `f`'), 'a b c d e f');
+  assert.equal(keep('a **b** __c__ ~~d~~ *e* `f`'), 'a **b** __c__ ~~d~~ *e* f');
+});

@@ -9,6 +9,7 @@ import { state } from './state.js';
 import { h } from './dom.js';
 import { icon } from './icons.js';
 import { segmented } from './segmented.js';
+import { wrapRich, drawRichLine, toggleMarker } from './rich-text.js';
 import { notify } from './ui.js';
 import { t } from './i18n.js';
 import { APP_NAME } from './brand.js';
@@ -20,29 +21,7 @@ const FONT = '-apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-s
 // Instagram draws its own bar over the top and the reply box over the bottom: nothing important goes there.
 const TOP = 250;
 const BOTTOM = H - 250;
-const COLORS = { bg: '#2b5ce6', card: '#14161b', text: '#f3f4f7', accent: '#7f9bff', muted: '#a3a9b6', rule: '#2a2e38' };
-
-// Greedy word wrap; a word longer than the line is broken by letters.
-export function wrap(ctx, text, maxWidth) {
-  const lines = [];
-  for (const para of String(text).split('\n')) {
-    let line = '';
-    for (const word of para.split(/\s+/).filter(Boolean)) {
-      const next = line ? `${line} ${word}` : word;
-      if (ctx.measureText(next).width <= maxWidth) { line = next; continue; }
-      if (line) lines.push(line);
-      line = word;
-      while (ctx.measureText(line).width > maxWidth && line.length > 1) {
-        let n = line.length - 1;
-        while (n > 1 && ctx.measureText(line.slice(0, n)).width > maxWidth) n -= 1;
-        lines.push(line.slice(0, n));
-        line = line.slice(n);
-      }
-    }
-    lines.push(line);
-  }
-  return lines;
-}
+const COLORS = { bg: '#2b5ce6', card: '#14161b', text: '#f3f4f7', accent: '#7f9bff', muted: '#a3a9b6', rule: '#2a2e38', underline: '#ffd23f' };
 
 // The look of the "share to story" cards of Spotify, Netflix and Prime Video: a flat brand-colour background, one big rounded
 // card in the middle that holds the content (the sticker), and the brand mark above and below it, all clear of the strips
@@ -66,10 +45,7 @@ function layout(ctx, turns) {
     const pSize = Math.round(size * 1.12);
     const pLead = Math.round(pSize * 1.3);
     const rows = turns.map((turn) => {
-      ctx.font = `700 ${pSize}px ${FONT}`;
-      const p = wrap(ctx, turn.prompt.trim(), INNER);
-      ctx.font = `400 ${size}px ${FONT}`;
-      return { p, r: wrap(ctx, turn.reply.trim(), INNER) };
+      return { p: wrapRich(ctx, turn.prompt.trim(), INNER, pSize, 700, FONT), r: wrapRich(ctx, turn.reply.trim(), INNER, size, 400, FONT) };
     });
     const total = PAD * 2 + LABEL + HEAD + (rows.length - 1) * TURN_GAP + rows.reduce((sum, row) => sum + row.p.length * pLead + RULE + row.r.length * lead, 0);
     if (total <= avail || size === 24) return { size, lead, pSize, pLead, rows, total };
@@ -119,9 +95,7 @@ export function renderStory({ turns, assistant }) {
       ctx.fillText(t('story.you').toUpperCase(), x, y + 26);
       y += LABEL;
     }
-    ctx.fillStyle = COLORS.text;
-    ctx.font = `700 ${m.pSize}px ${FONT}`;
-    row.p.forEach((line, k) => ctx.fillText(line, x, y + m.pSize + k * m.pLead - m.pSize * 0.1));
+    row.p.forEach((line, k) => drawRichLine(ctx, line, x, y + m.pSize + k * m.pLead - m.pSize * 0.1, { size: m.pSize, weight: 700, family: FONT, color: COLORS.text, underline: COLORS.underline }));
     y += row.p.length * m.pLead;
 
     ctx.fillStyle = COLORS.rule;
@@ -143,9 +117,7 @@ export function renderStory({ turns, assistant }) {
       ctx.fillText(name, x + 84, y + 43);
       y += HEAD;
     }
-    ctx.fillStyle = COLORS.text;
-    ctx.font = `400 ${m.size}px ${FONT}`;
-    row.r.forEach((line, k) => ctx.fillText(line, x, y + m.size + k * m.lead - m.size * 0.1));
+    row.r.forEach((line, k) => drawRichLine(ctx, line, x, y + m.size + k * m.lead - m.size * 0.1, { size: m.size, weight: 400, family: FONT, color: COLORS.text, underline: COLORS.underline }));
     y += row.r.length * m.lead + (i < m.rows.length - 1 ? TURN_GAP : 0);
   });
 
@@ -213,6 +185,25 @@ export async function storyTurns(sessionId) {
   return out;
 }
 
+// B / I / U / S above a text field: they wrap the selected words in the markers rich-text.js reads. Ctrl/Cmd+B, I and U work too.
+const FORMATS = [['**', 'B', 'bold'], ['*', 'I', 'italic'], ['__', 'U', 'underline'], ['~~', 'S', 'strike']];
+function formatBar(field) {
+  const label = { bold: t('story.fmt.bold'), italic: t('story.fmt.italic'), underline: t('story.fmt.underline'), strike: t('story.fmt.strike') };
+  const bar = h('div', { className: 'fmt-bar', role: 'toolbar', 'aria-label': t('story.fmt') },
+    FORMATS.map(([mark, letter, name]) => {
+      const button = h('button', { type: 'button', className: `fmt-btn fmt-${name}`, 'aria-label': label[name], title: label[name], 'data-testid': `fmt-${name}` }, letter);
+      button.addEventListener('mousedown', (event) => event.preventDefault()); // keep the selection in the field
+      button.addEventListener('click', () => toggleMarker(field, mark));
+      return button;
+    }));
+  field.addEventListener('keydown', (event) => {
+    if (!(event.ctrlKey || event.metaKey) || event.altKey) return;
+    const hit = { b: '**', i: '*', u: '__' }[event.key.toLowerCase()];
+    if (hit) { event.preventDefault(); toggleMarker(field, hit); }
+  });
+  return bar;
+}
+
 const MAX_TURNS = 5; // keep in step with src/story.js
 
 // The dialog, in two steps: pick the turns, then shorten them, preview the picture, edit by hand or ask the AI, and share.
@@ -269,8 +260,8 @@ export async function openStoryDialog(session) {
       return;
     }
     const fields = text.turns.map((turn, i) => ({
-      you: h('textarea', { className: 'textarea story-text', rows: 2, maxLength: 400, 'aria-label': `${t('story.you')} ${i + 1}`, 'data-testid': `story-prompt-${i}` }, turn.prompt),
-      bot: h('textarea', { className: 'textarea story-text', rows: 4, maxLength: 800, 'aria-label': `${t('story.reply')} ${i + 1}`, 'data-testid': `story-reply-${i}` }, turn.reply),
+      you: h('textarea', { className: 'textarea story-text', rows: 2, maxLength: 700, 'aria-label': `${t('story.you')} ${i + 1}`, 'data-testid': `story-prompt-${i}` }, turn.prompt),
+      bot: h('textarea', { className: 'textarea story-text', rows: 4, maxLength: 1400, 'aria-label': `${t('story.reply')} ${i + 1}`, 'data-testid': `story-reply-${i}` }, turn.reply),
     }));
     const current = () => fields.map((f) => ({ prompt: f.you.value, reply: f.bot.value }));
     const fill = (turns) => turns.forEach((turn, i) => { fields[i].you.value = turn.prompt; fields[i].bot.value = turn.reply; });
@@ -344,9 +335,10 @@ export async function openStoryDialog(session) {
         h('div', { className: 'dlg-row' }, h('span', { className: 'muted' }, t('story.scope')), scopeSeg.el),
         h('div', { className: 'dlg-row' }, apply, undo)),
       message,
+      h('p', { className: 'dlg-note' }, t('story.fmt.hint')),
       ...fields.map((f, i) => h('div', { className: 'share-field' },
         fields.length > 1 ? h('span', { className: 'share-label' }, t('story.turn', { n: i + 1 })) : null,
-        h('span', { className: 'muted' }, t('story.you')), f.you, h('span', { className: 'muted' }, t('story.reply')), f.bot)),
+        h('span', { className: 'muted' }, t('story.you')), formatBar(f.you), f.you, h('span', { className: 'muted' }, t('story.reply')), formatBar(f.bot), f.bot)),
       h('div', { className: 'dlg-row' }, go, back),
     );
     draw();

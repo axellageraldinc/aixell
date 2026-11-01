@@ -1313,6 +1313,13 @@ select.select option:checked { background: var(--bgColor-accent-muted); }
 .story-pick-text { display: grid; gap: 2px; min-width: 0; }
 .story-pick-text b, .story-pick-text small { overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow-wrap: anywhere; }
 .story-pick-text small { color: var(--fgColor-muted); font-size: 13px; }
+.fmt-bar { display: flex; gap: 6px; }
+.fmt-btn { width: 34px; height: 30px; padding: 0; border: 1px solid var(--hairline); border-radius: 8px; background: transparent; color: var(--fgColor-default); font: inherit; font-size: 14px; cursor: pointer; }
+.fmt-btn:hover { background: var(--hover); }
+.fmt-bold { font-weight: 800; }
+.fmt-italic { font-style: italic; }
+.fmt-underline { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; }
+.fmt-strike { text-decoration: line-through; }
 .story-text { width: 100%; resize: vertical; }
 
 /* Share dialog */
