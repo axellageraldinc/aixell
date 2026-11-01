@@ -46,6 +46,7 @@ const ICONS = {
     ['circle', { cx: 9, cy: 9, r: 2 }],
     'm21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21',
   ],
+  story: [['rect', { x: 6, y: 2, width: 12, height: 20, rx: 3 }], 'M12 9v6', 'M9 12h6'],
   'panel-left': [['rect', { x: 3, y: 3, width: 18, height: 18, rx: 2 }], 'M9 3v18'],
   search: [['circle', { cx: 11, cy: 11, r: 8 }], 'm21 21-4.3-4.3'],
   'chevron-right': ['m9 18 6-6-6-6'],

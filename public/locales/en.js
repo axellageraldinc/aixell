@@ -478,6 +478,7 @@ export default {
   'story.reply': 'Reply',
   'story.shortening': 'Shortening the exchange to fit one story…',
   'story.shortened': 'Shortened to fit one story. Edit the text if you like.',
+  'story.tagline': 'A chat with my AI',
   'story.share': 'Share',
   'story.downloaded': 'Picture saved.',
   'share.menu': 'Share public link…',

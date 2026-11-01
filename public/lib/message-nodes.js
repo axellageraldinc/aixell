@@ -80,7 +80,7 @@ export function assistantMeta(getText) {
     }),
   );
   // The prompt is the user bubble just above this reply in the thread (history and live replies are built the same way).
-  const story = h('button', { type: 'button', className: 'ibtn ibtn-sm', 'aria-label': t('story.menu'), title: t('story.menu'), 'data-testid': 'share-story-open' }, icon('image', 14));
+  const story = h('button', { type: 'button', className: 'ibtn ibtn-sm', 'aria-label': t('story.menu'), title: t('story.menu'), 'data-testid': 'share-story-open' }, icon('story', 14));
   story.addEventListener('click', () => {
     let node = story.closest('.msg-assistant')?.previousElementSibling;
     while (node && !node.classList.contains('msg-user')) node = node.previousElementSibling;

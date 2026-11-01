@@ -14,10 +14,10 @@ const W = 1080;
 const H = 1920;
 const FONT = '-apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
 // Instagram draws its own bar over the top and the reply box over the bottom: nothing important goes there.
-const TOP = 270;
-const BOTTOM = H - 270;
+const TOP = 250;
+const BOTTOM = H - 250;
 const SIDE = 80;
-const COLORS = { bg: '#161719', pill: '#2b2d31', text: '#ececf1', accent: '#2f6bff', muted: '#80858f', name: '#c5c8d0' };
+const COLORS = { bg: '#2748e0', card: '#14161b', text: '#f3f4f7', accent: '#7f9bff', muted: '#a3a9b6', rule: '#2a2e38' };
 
 // Greedy word wrap; a word longer than the line is broken by letters.
 export function wrap(ctx, text, maxWidth) {
@@ -41,22 +41,32 @@ export function wrap(ctx, text, maxWidth) {
   return lines;
 }
 
-// Plain AI-chat look (ChatGPT, Claude, Gemini): the prompt in a soft pill on the right, the answer as bare text under a
-// small avatar and name. The largest font (down to 30 px) at which both fit between the two safe lines.
+// The look of the "share to story" cards of Spotify, Netflix and Prime Video: a flat brand-colour background, one big rounded
+// card in the middle that holds the content (the sticker), and the brand mark above and below it, all clear of the strips
+// Instagram covers. Inside the card the prompt is the headline and the reply is plain text under an avatar and name.
+const CARD_X = 64;
+const CARD_W = W - CARD_X * 2;
+const PAD = 60;
+const INNER = CARD_W - PAD * 2;
+const BRAND_H = 110; // brand row above the card
+const FOOT_H = 100; // line below the card
+
+// The largest font (down to 28 px) at which the whole card fits between the two safe lines.
 function layout(ctx, prompt, reply) {
-  const pad = 40;
-  const gap = 70;
-  const head = 110; // avatar row above the answer
-  const maxPill = W - SIDE * 2 - 120;
-  for (let size = 56; size >= 30; size -= 2) {
-    const lead = Math.round(size * 1.5);
+  const avail = BOTTOM - TOP - BRAND_H - FOOT_H;
+  for (let size = 54; size >= 28; size -= 2) {
+    const lead = Math.round(size * 1.45);
+    const pSize = Math.round(size * 1.12);
+    const pLead = Math.round(pSize * 1.3);
+    ctx.font = `700 ${pSize}px ${FONT}`;
+    const p = wrap(ctx, prompt, INNER);
     ctx.font = `400 ${size}px ${FONT}`;
-    const u = wrap(ctx, prompt, maxPill - pad * 2);
-    const a = wrap(ctx, reply, W - SIDE * 2);
-    const uh = u.length * lead + pad * 2 - (lead - size) ;
-    const ah = a.length * lead;
-    const total = uh + gap + head + ah;
-    if (total <= BOTTOM - TOP || size === 30) return { size, lead, pad, gap, head, u, a, uh, ah, total, maxPill };
+    const r = wrap(ctx, reply, INNER);
+    const label = 50;
+    const head = 96;
+    const rule = 56;
+    const total = PAD + label + p.length * pLead + rule + head + r.length * lead + PAD;
+    if (total <= avail || size === 28) return { size, lead, pSize, pLead, p, r, label, head, rule, total };
   }
   return null;
 }
@@ -72,43 +82,67 @@ export function renderStory({ prompt, reply, assistant }) {
   ctx.textBaseline = 'alphabetic';
 
   const m = layout(ctx, prompt.trim(), reply.trim());
-  ctx.font = `400 ${m.size}px ${FONT}`;
-  const uw = Math.min(m.maxPill, Math.max(...m.u.map((l) => ctx.measureText(l).width)) + m.pad * 2);
-  let y = TOP + Math.max(0, (BOTTOM - TOP - m.total) / 2);
+  const block = BRAND_H + m.total + FOOT_H;
+  const top = TOP + Math.max(0, (BOTTOM - TOP - block) / 2);
 
-  // the prompt
+  // brand row: a round mark and the name, on the background colour
   ctx.beginPath();
-  ctx.roundRect(W - SIDE - uw, y, uw, m.uh, 44);
-  ctx.fillStyle = COLORS.pill;
+  ctx.arc(W / 2 - 78, top + 42, 22, 0, Math.PI * 2);
+  ctx.fillStyle = COLORS.card;
   ctx.fill();
-  ctx.fillStyle = COLORS.text;
+  ctx.fillStyle = COLORS.bg;
+  ctx.font = `800 26px ${FONT}`;
+  ctx.textAlign = 'center';
+  ctx.fillText(APP_NAME[0].toUpperCase(), W / 2 - 78, top + 51);
+  ctx.fillStyle = '#ffffff';
+  ctx.font = `800 40px ${FONT}`;
   ctx.textAlign = 'left';
-  m.u.forEach((line, i) => ctx.fillText(line, W - SIDE - uw + m.pad, y + m.pad + m.size + i * m.lead - m.size * 0.1));
-  y += m.uh + m.gap;
+  ctx.fillText(APP_NAME, W / 2 - 44, top + 56);
 
-  // the answer: avatar, name, then plain text
+  // the card
+  let y = top + BRAND_H;
+  ctx.beginPath();
+  ctx.roundRect(CARD_X, y, CARD_W, m.total, 64);
+  ctx.fillStyle = COLORS.card;
+  ctx.fill();
+  const x = CARD_X + PAD;
+  y += PAD;
+
+  ctx.fillStyle = COLORS.accent;
+  ctx.font = `700 26px ${FONT}`;
+  ctx.fillText(t('story.you').toUpperCase(), x, y + 26);
+  y += m.label;
+  ctx.fillStyle = COLORS.text;
+  ctx.font = `700 ${m.pSize}px ${FONT}`;
+  m.p.forEach((line, i) => ctx.fillText(line, x, y + m.pSize + i * m.pLead - m.pSize * 0.1));
+  y += m.p.length * m.pLead;
+
+  ctx.fillStyle = COLORS.rule;
+  ctx.fillRect(x, y + m.rule / 2 - 1, INNER, 2);
+  y += m.rule;
+
   const name = assistant || APP_NAME;
   ctx.beginPath();
-  ctx.arc(SIDE + 30, y + 30, 30, 0, Math.PI * 2);
-  ctx.fillStyle = COLORS.accent;
+  ctx.arc(x + 31, y + 31, 31, 0, Math.PI * 2);
+  ctx.fillStyle = COLORS.bg;
   ctx.fill();
   ctx.fillStyle = '#ffffff';
-  ctx.font = `700 32px ${FONT}`;
+  ctx.font = `800 32px ${FONT}`;
   ctx.textAlign = 'center';
-  ctx.fillText([...name][0]?.toUpperCase() ?? '', SIDE + 30, y + 41);
+  ctx.fillText([...name][0]?.toUpperCase() ?? '', x + 31, y + 42);
   ctx.textAlign = 'left';
-  ctx.fillStyle = COLORS.name;
+  ctx.fillStyle = COLORS.muted;
   ctx.font = `600 34px ${FONT}`;
-  ctx.fillText(name, SIDE + 80, y + 42);
+  ctx.fillText(name, x + 84, y + 43);
   y += m.head;
   ctx.fillStyle = COLORS.text;
   ctx.font = `400 ${m.size}px ${FONT}`;
-  m.a.forEach((line, i) => ctx.fillText(line, SIDE, y + m.size + i * m.lead - m.size * 0.1));
+  m.r.forEach((line, i) => ctx.fillText(line, x, y + m.size + i * m.lead - m.size * 0.1));
 
   ctx.textAlign = 'center';
-  ctx.fillStyle = COLORS.muted;
-  ctx.font = `500 30px ${FONT}`;
-  ctx.fillText(APP_NAME, W / 2, BOTTOM + 70);
+  ctx.fillStyle = 'rgba(255,255,255,0.85)';
+  ctx.font = `600 32px ${FONT}`;
+  ctx.fillText(t('story.tagline'), W / 2, top + BRAND_H + m.total + 72);
 
   return new Promise((resolve, reject) => canvas.toBlob((b) => (b ? resolve({ blob: b, canvas }) : reject(new Error('could not render the image'))), 'image/png'));
 }
