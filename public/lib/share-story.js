@@ -17,7 +17,7 @@ const FONT = '-apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-s
 const TOP = 270;
 const BOTTOM = H - 270;
 const SIDE = 80;
-const COLORS = { bg: '#101216', user: '#2f6bff', userText: '#ffffff', bot: '#23272f', botText: '#eceff4', muted: '#8d95a3', name: '#b8c0cc' };
+const COLORS = { bg: '#161719', pill: '#2b2d31', text: '#ececf1', accent: '#2f6bff', muted: '#80858f', name: '#c5c8d0' };
 
 // Greedy word wrap; a word longer than the line is broken by letters.
 export function wrap(ctx, text, maxWidth) {
@@ -41,35 +41,24 @@ export function wrap(ctx, text, maxWidth) {
   return lines;
 }
 
-// The largest font (down to 30 px) at which both bubbles fit between the two safe lines.
+// Plain AI-chat look (ChatGPT, Claude, Gemini): the prompt in a soft pill on the right, the answer as bare text under a
+// small avatar and name. The largest font (down to 30 px) at which both fit between the two safe lines.
 function layout(ctx, prompt, reply) {
-  const pad = 44;
-  const maxBubble = W - SIDE * 2 - 60;
-  const gap = 56;
-  const label = 70;
-  for (let size = 58; size >= 30; size -= 2) {
-    const lead = Math.round(size * 1.4);
-    ctx.font = `500 ${size}px ${FONT}`;
-    const u = wrap(ctx, prompt, maxBubble - pad * 2);
-    const a = wrap(ctx, reply, maxBubble - pad * 2);
-    const uh = u.length * lead + pad * 2;
-    const ah = a.length * lead + pad * 2;
-    const total = uh + ah + gap + label * 2;
-    if (total <= BOTTOM - TOP || size === 30) return { size, lead, pad, gap, label, u, a, uh, ah, total, maxBubble };
+  const pad = 40;
+  const gap = 70;
+  const head = 110; // avatar row above the answer
+  const maxPill = W - SIDE * 2 - 120;
+  for (let size = 56; size >= 30; size -= 2) {
+    const lead = Math.round(size * 1.5);
+    ctx.font = `400 ${size}px ${FONT}`;
+    const u = wrap(ctx, prompt, maxPill - pad * 2);
+    const a = wrap(ctx, reply, W - SIDE * 2);
+    const uh = u.length * lead + pad * 2 - (lead - size) ;
+    const ah = a.length * lead;
+    const total = uh + gap + head + ah;
+    if (total <= BOTTOM - TOP || size === 30) return { size, lead, pad, gap, head, u, a, uh, ah, total, maxPill };
   }
   return null;
-}
-
-function bubble(ctx, { x, y, w, h: hh, fill, lines, color, size, lead, pad, right }) {
-  ctx.beginPath();
-  ctx.roundRect(x, y, w, hh, [44, 44, right ? 12 : 44, right ? 44 : 12]);
-  ctx.fillStyle = fill;
-  ctx.fill();
-  ctx.fillStyle = color;
-  ctx.font = `500 ${size}px ${FONT}`;
-  ctx.textAlign = 'left';
-  ctx.textBaseline = 'alphabetic';
-  lines.forEach((line, i) => ctx.fillText(line, x + pad, y + pad + size + i * lead - size * 0.12));
 }
 
 export function renderStory({ prompt, reply, assistant }) {
@@ -80,29 +69,41 @@ export function renderStory({ prompt, reply, assistant }) {
   if (!ctx || !prompt?.trim() || !reply?.trim()) return Promise.reject(new Error('nothing to draw'));
   ctx.fillStyle = COLORS.bg;
   ctx.fillRect(0, 0, W, H);
+  ctx.textBaseline = 'alphabetic';
 
   const m = layout(ctx, prompt.trim(), reply.trim());
-  const width = (lines) => Math.min(m.maxBubble, Math.max(...lines.map((l) => ctx.measureText(l).width)) + m.pad * 2);
-  ctx.font = `500 ${m.size}px ${FONT}`;
-  const uw = width(m.u);
-  const aw = width(m.a);
-  // The block is centred between the safe lines.
+  ctx.font = `400 ${m.size}px ${FONT}`;
+  const uw = Math.min(m.maxPill, Math.max(...m.u.map((l) => ctx.measureText(l).width)) + m.pad * 2);
   let y = TOP + Math.max(0, (BOTTOM - TOP - m.total) / 2);
 
-  ctx.font = `600 30px ${FONT}`;
-  ctx.fillStyle = COLORS.muted;
-  ctx.textAlign = 'right';
-  ctx.fillText(t('story.you'), W - SIDE, y + 38);
-  y += m.label;
-  bubble(ctx, { x: W - SIDE - uw, y, w: uw, h: m.uh, fill: COLORS.user, lines: m.u, color: COLORS.userText, size: m.size, lead: m.lead, pad: m.pad, right: true });
+  // the prompt
+  ctx.beginPath();
+  ctx.roundRect(W - SIDE - uw, y, uw, m.uh, 44);
+  ctx.fillStyle = COLORS.pill;
+  ctx.fill();
+  ctx.fillStyle = COLORS.text;
+  ctx.textAlign = 'left';
+  m.u.forEach((line, i) => ctx.fillText(line, W - SIDE - uw + m.pad, y + m.pad + m.size + i * m.lead - m.size * 0.1));
   y += m.uh + m.gap;
 
-  ctx.font = `600 30px ${FONT}`;
-  ctx.fillStyle = COLORS.name;
+  // the answer: avatar, name, then plain text
+  const name = assistant || APP_NAME;
+  ctx.beginPath();
+  ctx.arc(SIDE + 30, y + 30, 30, 0, Math.PI * 2);
+  ctx.fillStyle = COLORS.accent;
+  ctx.fill();
+  ctx.fillStyle = '#ffffff';
+  ctx.font = `700 32px ${FONT}`;
+  ctx.textAlign = 'center';
+  ctx.fillText([...name][0]?.toUpperCase() ?? '', SIDE + 30, y + 41);
   ctx.textAlign = 'left';
-  ctx.fillText(assistant || APP_NAME, SIDE, y + 38);
-  y += m.label;
-  bubble(ctx, { x: SIDE, y, w: aw, h: m.ah, fill: COLORS.bot, lines: m.a, color: COLORS.botText, size: m.size, lead: m.lead, pad: m.pad, right: false });
+  ctx.fillStyle = COLORS.name;
+  ctx.font = `600 34px ${FONT}`;
+  ctx.fillText(name, SIDE + 80, y + 42);
+  y += m.head;
+  ctx.fillStyle = COLORS.text;
+  ctx.font = `400 ${m.size}px ${FONT}`;
+  m.a.forEach((line, i) => ctx.fillText(line, SIDE, y + m.size + i * m.lead - m.size * 0.1));
 
   ctx.textAlign = 'center';
   ctx.fillStyle = COLORS.muted;
