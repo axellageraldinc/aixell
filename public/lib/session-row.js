@@ -6,6 +6,7 @@ import { copyText } from './clipboard.js';
 import { notify } from './ui.js';
 import { exportMarkdown, printChat } from './export.js';
 import { openShareDialog } from './share-chat.js';
+import { openStoryDialog } from './share-story.js';
 import { provisionalTitle, visibleTitle } from './auto-title.js';
 import { t } from './i18n.js';
 
@@ -41,6 +42,7 @@ export function sessionRow(s, current, { onOpen, onRename, onDelete }) {
           { label: t('sessions.row.copyId'), icon: 'copy', action: async () => notify((await copyText(s.id)) ? t('sessions.row.copyId.done') : t('common.copyFailed')) },
           { label: t('feed.export'), icon: 'download', testid: 'export-md', action: () => exportMarkdown(s) },
           { label: t('sessions.row.print'), icon: 'printer', testid: 'export-pdf', action: () => printChat(s) },
+          { label: t('story.menu'), icon: 'story', testid: 'story-menu', action: () => openStoryDialog(s) },
           { label: t('share.menu'), icon: 'external-link', testid: 'share-open', action: () => openShareDialog(s) },
           { label: t('sessions.row.rename'), icon: 'pencil', action: () => startRename(row, open, s, onRename) },
           { label: t('common.delete'), icon: 'trash', destructive: true, confirm: { prompt: t('sessions.row.deleteConfirm'), label: t('common.delete') }, action: () => onDelete(s) },

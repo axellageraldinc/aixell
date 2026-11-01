@@ -1307,6 +1307,12 @@ select.select option:checked { background: var(--bgColor-accent-muted); }
 .story-ask { flex: 1 1 200px; min-width: 0; }
 .story-chips { gap: 6px; }
 .story-chip { height: 30px; padding: 0 12px; font-size: 13px; }
+.story-picks { display: grid; gap: 6px; max-height: 48dvh; overflow-y: auto; }
+.story-pick { display: flex; align-items: flex-start; gap: 12px; padding: 10px 12px; border: 1px solid var(--hairline); border-radius: 14px; cursor: pointer; }
+.story-pick:has(input:checked) { border-color: var(--color-primary); background: var(--bgColor-accent-muted); }
+.story-pick-text { display: grid; gap: 2px; min-width: 0; }
+.story-pick-text b, .story-pick-text small { overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow-wrap: anywhere; }
+.story-pick-text small { color: var(--fgColor-muted); font-size: 13px; }
 .story-text { width: 100%; resize: vertical; }
 
 /* Share dialog */

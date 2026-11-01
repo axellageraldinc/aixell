@@ -7,6 +7,7 @@ import { displayTitle } from './session-row.js';
 import { provisionalTitle } from './auto-title.js';
 import { chatCostLevel, initBudget } from './budget.js';
 import { openShareDialog } from './share-chat.js';
+import { openStoryDialog } from './share-story.js';
 import { t } from './i18n.js';
 
 const titleEl = $('#chat-title');
@@ -50,7 +51,9 @@ export function initHeader() {
   meter.addEventListener('click', () => emit('inspector:toggle'));
   const shareButton = $('#topbar-share');
   shareButton.addEventListener('click', () => openShareDialog(state.session ?? state.sessions.find((x) => x.id === state.sessionId) ?? { id: state.sessionId }));
-  const renderShare = () => { shareButton.hidden = !state.sessionId; };
+  const storyButton = $('#topbar-story');
+  storyButton.addEventListener('click', () => openStoryDialog(state.session ?? state.sessions.find((x) => x.id === state.sessionId) ?? { id: state.sessionId }));
+  const renderShare = () => { shareButton.hidden = !state.sessionId; storyButton.hidden = !state.sessionId; };
   on('session:changed', renderShare);
   renderShare();
   $('#topbar-new').addEventListener('click', () => emit('session:select', null));
