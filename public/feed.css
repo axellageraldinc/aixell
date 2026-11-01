@@ -473,3 +473,32 @@ html[data-feed-view="home"] .ptr { z-index: 8; top: 52px; box-shadow: 0 2px 10px
 .fr-s-hours { display: inline-flex; align-items: center; gap: 4px; flex: none; }
 .fr-s-hours input { width: 64px; }
 .fr-s-catrow textarea { width: 100%; font-family: ui-monospace, monospace; font-size: 12px; margin-top: 6px; }
+
+/* ===== Plain AI-chat look inside a chat (ChatGPT, Claude, Gemini): your message in a soft bubble on the right, the reply as
+   bare text on the page. This replaces the one-page-per-turn layout above; the Feed home and the reader are unchanged. ===== */
+.message-list { padding-top: 16px; padding-bottom: var(--feed-tail, 16px); }
+.message-list > * + * { margin-top: 24px; }
+.msg-user {
+  align-self: flex-end; align-items: flex-end; max-width: min(80%, 640px); min-height: 0; padding: 0; cursor: default; counter-increment: none;
+}
+.msg-user::before { content: none; }
+.user-body {
+  display: block; -webkit-line-clamp: unset; overflow: visible; padding: 10px 18px; border-radius: 22px; background: var(--user-bubble);
+  font-size: 16px; line-height: 1.55; color: var(--fgColor-default);
+}
+.msg-user:has(.code-block, .table-wrap) { max-width: 100%; }
+.msg-assistant { min-height: 0; padding: 0; border-bottom: 0; font-size: 16px; line-height: 1.7; }
+.msg-assistant > .md:first-of-type > p:first-child,
+.msg-assistant > .stream-content > .md:first-child > p:first-child,
+.msg-assistant[data-lede="long"] > .md:first-of-type > p:first-child,
+.msg-assistant[data-lede="long"] > .stream-content > .md:first-child > p:first-child {
+  margin: 0; font-size: inherit; font-weight: inherit; line-height: inherit; letter-spacing: normal;
+}
+.msg-assistant > .md:first-of-type > p:first-child::before,
+.msg-assistant > .stream-content > .md:first-child > p:first-child::before { content: none; }
+.msg-assistant > .md > p:first-child strong, .msg-assistant > .stream-content > .md > p:first-child strong { font-weight: 700; }
+.msg-assistant .meta { margin-top: 6px; }
+.msg-assistant.feed-pre > * { transition: none; }
+.msg-assistant.feed-pre:not(.feed-seen) > * { opacity: 1; transform: none; }
+.feed-rail { display: none !important; }
+@media (max-width: 899px) { .message-list { padding-inline: 16px; } }
