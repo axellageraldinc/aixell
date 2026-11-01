@@ -88,3 +88,10 @@ test('diversify spreads a cluster of near-identical stories instead of listing t
   assert.deepEqual(diversify(items, vecs).map((i) => i.id), ['a1', 'b', 'a2', 'c', 'a3']);
   assert.deepEqual(diversify(items, new Map()).map((i) => i.id), items.map((i) => i.id), 'no vectors, no change');
 });
+
+test('searchWords finds a half-typed word and names, newest first', () => {
+  const id = card(9, 'Andrej Karpathy releases a new course');
+  assert.deepEqual(store.searchWords('karp').map((h) => h.id), [id]);
+  assert.deepEqual(store.searchWords('KARPATHY course').map((h) => h.id), [id]);
+  assert.deepEqual(store.searchWords('k'), []);
+});

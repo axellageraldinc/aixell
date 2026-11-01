@@ -716,16 +716,18 @@ export function listFresh({ cat = '', saved = false, cursor = '', limit = 12, mo
   const last = rows.at(-1);
   return { items: rows.map(present), next: more && last ? `${saved ? last.saved_at : last.published}:${last.id}` : '', newest, mode: saved ? 'saved' : 'latest', catOrder: catOrder(), ...localeInfo() };
 }
-// Search by meaning (words when no embedding provider answers). Best first; each item carries its similarity.
+// Hybrid search: stories that contain what was typed (also a part of a word: "karp" finds "Karpathy") come first, then stories close in
+// meaning. Meaning alone cannot find a name or a half-typed word, words alone cannot find a topic.
 export async function searchFresh(text, { cat = '', saved = false, limit = 20 } = {}) {
   limit = Math.max(1, Math.min(50, limit));
   const c = CATEGORIES[cat] ? cat : '';
-  const hits = await vectors.search(agent, text, { cat: c, saved, limit });
-  const mode = hits ? 'meaning' : 'words';
-  const found = hits ?? store.searchWords(text, { cat: c, saved, limit });
+  const exact = store.searchWords(text, { cat: c, saved, limit });
+  const meaning = await vectors.search(agent, text, { cat: c, saved, limit });
+  const seen = new Set(exact.map((h) => h.id));
+  const found = [...exact, ...(meaning ?? []).filter((h) => !seen.has(h.id))].slice(0, limit);
   const byId = new Map(store.rowsByIds(found.map((h) => h.id)).map((r) => [r.id, r]));
-  const items = found.filter((h) => byId.has(h.id)).map((h) => ({ ...present(byId.get(h.id)), similarity: Math.round(h.score * 1000) / 1000 }));
-  return { items, mode, ...localeInfo() };
+  const items = found.filter((h) => byId.has(h.id)).map((h) => ({ ...present(byId.get(h.id)), similarity: Math.round(h.score * 1000) / 1000, match: seen.has(h.id) ? 'words' : 'meaning' }));
+  return { items, mode: meaning ? 'hybrid' : 'words', ...localeInfo() };
 }
 export const similarFresh = (id, limit = 10) => {
   const hits = vectors.similar(agent, id, { limit });

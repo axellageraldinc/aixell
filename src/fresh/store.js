@@ -249,5 +249,5 @@ export function searchWords(text, { cat = '', saved = false, limit = 20 } = {}) 
   for (const w of words) { where.push("lower(coalesce(title, '') || ' ' || coalesce(title_local, '') || ' ' || coalesce(summary, '') || ' ' || coalesce(topics, '')) LIKE ? ESCAPE '\\'"); args.push(`%${w.replace(/[\\%_]/g, (c) => `\\${c}`)}%`); }
   if (cat) { where.push('cat = ?'); args.push(cat); }
   if (saved) where.push('saved = 1');
-  return db.prepare(`SELECT id FROM items WHERE ${where.join(' AND ')} ORDER BY published DESC LIMIT ?`).all(...args, limit).map((r) => ({ id: r.id, score: 0 }));
+  return db.prepare(`SELECT id FROM items WHERE ${where.join(' AND ')} ORDER BY published DESC LIMIT ?`).all(...args, limit).map((r) => ({ id: r.id, score: 1 }));
 }
