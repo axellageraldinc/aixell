@@ -45,3 +45,17 @@ test('an instruction is refused when too long, and fails honestly (no fake edit)
   await assert.rejects(storyText(agent, { turns, instruction: 'x'.repeat(301) }), { code: 'story_bad_instruction' });
   await assert.rejects(storyText(agent, { turns, instruction: 'make it formal' }), { code: 'story_edit_failed' });
 });
+
+test('the model may rewrite only the side that was asked for: the other side is put back as given', async () => {
+  const reply = JSON.stringify({ turns: [{ prompt: 'CHANGED prompt', reply: 'CHANGED reply' }] });
+  compat.setProviderConfig({
+    providers: { fake: { type: 'openai-compatible', baseUrl: 'http://fake.invalid/v1', apiKey: 'inline-test-key' } },
+    capabilities: { writer: { provider: 'fake', chain: [{ model: 'm', paid: true }] } },
+  });
+  compat.setTransport?.(async () => new Response(JSON.stringify({ choices: [{ message: { content: reply } }] }), { status: 200, headers: { 'content-type': 'application/json' } }));
+  const turns = [{ prompt: 'my prompt', reply: 'the ai reply' }];
+  const onlyReply = await storyText(agent, { turns, instruction: 'x', scope: 'reply' });
+  assert.deepEqual(onlyReply.turns, [{ prompt: 'my prompt', reply: 'CHANGED reply' }]);
+  const onlyPrompt = await storyText(agent, { turns, instruction: 'x', scope: 'prompt' });
+  assert.deepEqual(onlyPrompt.turns, [{ prompt: 'CHANGED prompt', reply: 'the ai reply' }]);
+});

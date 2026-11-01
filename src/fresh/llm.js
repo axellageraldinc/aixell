@@ -181,14 +181,16 @@ export async function chatChain(agent, opts, parse) {
   const free = freeEntry(registry);
   const paid = paidEntry(registry);
   if (!text || (!free && !paid)) throw new Error('no writer provider');
+  let freeError = null;
   if (free && freeRoom(registry)) {
     try { bump('free'); return parse(await freeChat(text, free, opts, chatWaitMs(registry), { unmetered: unmeteredOf(registry) })); }
     catch (err) {
       if (isLimit(err)) { bump('deferredByLimit'); throw err; } // busy is not a reason to pay: the job waits for the next round
       bump('paidDueToError');
+      freeError = err;
     }
   } else bump('paidDueToLimit');
-  if (!paid) throw new Error('no paid writer');
+  if (!paid) throw freeError ?? new Error('no paid writer'); // the real reason, not just that there is no fallback
   if (!paidRoom(registry)) throw new Error('paid cap reached');
   bump('paid');
   return parse(await chatOnce(text, paid, opts, { unmetered: unmeteredOf(registry) }));

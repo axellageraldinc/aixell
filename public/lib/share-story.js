@@ -8,6 +8,7 @@ import { allMessages, answerOf } from './export.js';
 import { state } from './state.js';
 import { h } from './dom.js';
 import { icon } from './icons.js';
+import { segmented } from './segmented.js';
 import { notify } from './ui.js';
 import { t } from './i18n.js';
 import { APP_NAME } from './brand.js';
@@ -290,31 +291,41 @@ export async function openStoryDialog(session) {
     const redraw = () => { clearTimeout(timer); timer = setTimeout(draw, 200); };
     fields.forEach((f) => { f.you.addEventListener('input', redraw); f.bot.addEventListener('input', redraw); });
 
+    // The AI edit: say what to change, choose whose text it applies to, then press Apply. Nothing runs until Apply.
+    let scope = 'both';
+    const scopeSeg = segmented({
+      label: t('story.scope'),
+      options: [['both', t('story.scope.both')], ['prompt', t('story.scope.prompt')], ['reply', t('story.scope.reply')]].map(([value, label]) => ({ value, label, testid: `story-scope-${value}` })),
+      onSelect: (value) => { scope = value; scopeSeg.set(scope); },
+    });
+    scopeSeg.set(scope);
     const ask = h('input', { type: 'text', className: 'input input-sm story-ask', maxLength: 300, placeholder: t('story.ask.placeholder'), 'aria-label': t('story.ask'), 'data-testid': 'story-ask' });
-    const apply = h('button', { type: 'button', className: 'btn btn-sm', 'data-testid': 'story-ask-apply' }, t('story.ask.apply'));
+    const apply = h('button', { type: 'button', className: 'btn btn-sm btn-primary', 'data-testid': 'story-ask-apply' }, t('story.ask.apply'));
     const undo = h('button', { type: 'button', className: 'btn btn-ghost btn-sm', hidden: true, 'data-testid': 'story-undo' }, t('story.undo'));
     let before = null;
+    const doneText = { both: t('story.ask.doneBoth'), prompt: t('story.ask.donePrompt'), reply: t('story.ask.doneReply') };
     const run = async () => {
       const instruction = ask.value.trim();
-      if (!instruction) return;
+      if (!instruction) { message.textContent = t('story.ask.empty'); ask.focus(); return; }
       apply.disabled = true;
       message.textContent = t('story.ask.working');
       try {
-        const next = await api(`${agentPath(state.agent)}/story`, { method: 'POST', body: { turns: current(), instruction } });
+        const next = await api(`${agentPath(state.agent)}/story`, { method: 'POST', body: { turns: current(), instruction, scope } });
         before = current();
         fill(next.turns);
         undo.hidden = false;
         ask.value = '';
-        message.textContent = '';
+        message.textContent = doneText[scope];
         draw();
       } catch (err) { message.textContent = err.message; }
       apply.disabled = false;
     };
-    const chips = [t('story.chip.english'), t('story.chip.shorter'), t('story.chip.casual'), t('story.chip.punchy')].map((label) =>
-      h('button', { type: 'button', className: 'pill story-chip', onClick: () => { ask.value = label; run(); } }, label));
+    // A suggestion only fills the box (and picks whose text it is about); the person reads it and presses Apply.
+    const suggest = (label, forScope) => h('button', { type: 'button', className: 'pill story-chip', onClick: () => { ask.value = label; scope = forScope; scopeSeg.set(scope); ask.focus(); } }, label);
+    const chips = [suggest(t('story.chip.english'), 'both'), suggest(t('story.chip.shorter'), 'reply'), suggest(t('story.chip.casual'), 'both'), suggest(t('story.chip.punchy'), 'reply')];
     apply.addEventListener('click', run);
     ask.addEventListener('keydown', (event) => { if (event.key === 'Enter') { event.preventDefault(); run(); } });
-    undo.addEventListener('click', () => { if (!before) return; fill(before); before = null; undo.hidden = true; draw(); });
+    undo.addEventListener('click', () => { if (!before) return; fill(before); before = null; undo.hidden = true; message.textContent = ''; draw(); });
     go.addEventListener('click', async () => {
       if (!made) return;
       go.disabled = true;
@@ -328,7 +339,10 @@ export async function openStoryDialog(session) {
     body.replaceChildren(
       preview,
       h('div', { className: 'share-field' }, h('span', { className: 'share-label' }, t('story.ask')),
-        h('div', { className: 'dlg-row' }, ask, apply, undo), h('div', { className: 'dlg-row story-chips' }, chips)),
+        h('div', { className: 'dlg-row story-chips' }, chips),
+        ask,
+        h('div', { className: 'dlg-row' }, h('span', { className: 'muted' }, t('story.scope')), scopeSeg.el),
+        h('div', { className: 'dlg-row' }, apply, undo)),
       message,
       ...fields.map((f, i) => h('div', { className: 'share-field' },
         fields.length > 1 ? h('span', { className: 'share-label' }, t('story.turn', { n: i + 1 })) : null,
