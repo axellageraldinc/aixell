@@ -6,7 +6,6 @@ import { renderMarkdown, hydrateOpenUI, hasOpenVisualFence } from './markdown.js
 import { stepRow, argPreview, inputText } from './tools.js';
 import { createActivity } from './activity.js';
 import { assistantMeta } from './message-nodes.js';
-import { scrollToEnd } from './scroll.js';
 import { fmtClock } from './format.js';
 import { onTick } from './clock.js';
 import { t } from './i18n.js';
@@ -46,11 +45,6 @@ export function createAssistantMessage({ startMs = Date.now(), skew = 0 } = {}) 
     workingText.textContent = `${phase.label}… ${fmtClock((Date.now() - startMs) / 1000)}`;
     return node.classList.contains('is-streaming');
   });
-  // A reply that keeps streaming while another chat is open must not scroll the thread that is on screen.
-  const follow = () => {
-    if (node.isConnected) scrollToEnd();
-  };
-
   // Re-rendering the whole answer on every token is quadratic: at most ~8 repaints a second.
   let lastPaint = 0;
   const paint = () => {
@@ -69,7 +63,6 @@ export function createAssistantMessage({ startMs = Date.now(), skew = 0 } = {}) 
     }
     // A visual block mounts after it is in the document (React renders into a live node, not a fragment).
     hydrateOpenUI(content, { streaming });
-    follow();
     if (streaming && segments.some((segment) => segment.openFence)) schedule();
   };
   const schedule = () => {
@@ -123,7 +116,6 @@ export function createAssistantMessage({ startMs = Date.now(), skew = 0 } = {}) 
       activity.add(row.node, { tool: true });
       tools.push({ row, name: title, startTs: null });
       phase = { kind: 'prepare', label: title };
-      follow();
       const end = (status) => {
         row.stop(status, status === 'done' ? (Date.now() - started) / 1000 : null);
         phase = { kind: 'thinking', label: t('chat.activity.thinking') };
@@ -138,7 +130,6 @@ export function createAssistantMessage({ startMs = Date.now(), skew = 0 } = {}) 
       activity.add(row.node, { tool: true });
       tools.push({ row, name, startTs: ts });
       phase = { kind: 'tool', label: t('chat.activity.runningTool', { name }) };
-      follow();
     },
     toolDone(name, status, ts) {
       const entry = tools.find((tool) => tool.name === name && tool.row.isRunning()) ?? tools.find((tool) => tool.row.isRunning());
@@ -182,14 +173,12 @@ export function createAssistantMessage({ startMs = Date.now(), skew = 0 } = {}) 
     addPart(el) {
       current = null;
       content.append(el);
-      follow();
     },
     addCommentary(text) {
       this.addPart(h('p', { className: 'commentary' }, text));
     },
     setNote(message, options) {
       content.append(noteNode(message, options));
-      follow();
     },
     // totalSeconds: server-side run time when known.
     // partial: the reply continues in a new message (a steer split it), so this one gets no "Replied in" line.

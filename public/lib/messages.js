@@ -63,8 +63,7 @@ export function addLive(key, node, { user = false } = {}) {
   if (key !== visibleKey()) return;
   clearEmptyState();
   listEl.append(node);
-  if (user) scrollToEnd(true);
-  else scrollToEnd();
+  if (user) scrollToEnd();
 }
 
 export function removeLive(key, node) {
@@ -295,7 +294,6 @@ export async function settleRun(sessionId, sinceSeconds) {
         cutoff = null;
         dropLive(visibleKey());
         renderThread();
-        scrollToEnd();
         return true;
       }
     } catch {
@@ -357,7 +355,7 @@ export async function loadSession(id) {
     if (session.web_run) cutoff = session.web_run.startedAt / 1000;
     renderThread();
     emit('session:changed');
-    scrollToEnd(true);
+    scrollToEnd();
     emit('thread:opened');
     if (session.web_run) emit('run:resume', { sessionId: id, startedAt: session.web_run.startedAt, userShown: visibleMessages().some((m) => m.role === 'user' && (m.timestamp ?? 0) >= cutoff) });
     else emit('composer:focus');

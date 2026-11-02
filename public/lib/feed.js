@@ -3,7 +3,6 @@
 import { h, $ } from './dom.js';
 import { icon } from './icons.js';
 import { state, on } from './state.js';
-import { releaseFollow } from './scroll.js';
 import { notify } from './ui.js';
 import { exportMarkdown } from './export.js';
 import { t } from './i18n.js';
@@ -104,7 +103,7 @@ export function initFeed() {
     count.textContent = all.length ? `${index + 1}/${all.length}` : '';
     up.disabled = index <= 0;
     down.disabled = index < 0 || index >= all.length - 1;
-    // Snapping while a reply streams would fight the view following it.
+    // Snapping while a reply streams would move the view under the reader.
     root.toggleAttribute('data-feed-live', Boolean(list.querySelector('.is-streaming')));
   }
   const schedule = () => { if (!frame) frame = requestAnimationFrame(update); };
@@ -161,7 +160,7 @@ export function initFeed() {
   thread.addEventListener('touchcancel', () => { touching = false; }, { passive: true });
 
   // A chat opens on the start of its last page (its question and the top of the reply), not on the very bottom, where the
-  // top of that page would be cut off. A reply that is still being written keeps following the bottom.
+  // top of that page would be cut off.
   // The page above can still grow after the chat opened (tables and pictures settle), which pushes the last page down; so the
   // alignment is repeated while the layout settles, and stops at the first thing the reader does.
   let holding = false;
@@ -171,7 +170,6 @@ export function initFeed() {
     room();
     const last = pages().at(-1);
     if (!last) return;
-    releaseFollow();
     thread.scrollTo({ top: topOf(last), behavior: 'auto' });
     schedule();
   }
