@@ -1,5 +1,6 @@
 // "Feed" interface style: every turn (your message + the reply) is one full-height page, moved through by swiping or
 // scrolling. The DOM is the normal chat; this only measures pages, keeps a small rail of actions, and marks nodes.
+import { releaseFollow } from './scroll.js';
 import { h, $ } from './dom.js';
 import { icon } from './icons.js';
 import { state, on } from './state.js';
@@ -170,6 +171,7 @@ export function initFeed() {
     room();
     const last = pages().at(-1);
     if (!last) return;
+    releaseFollow();
     thread.scrollTo({ top: topOf(last), behavior: 'auto' });
     schedule();
   }
