@@ -1330,3 +1330,5 @@ select.select option:checked { background: var(--bgColor-accent-muted); }
 .share-field { display: grid; gap: 8px; }
 .share-label { font-size: 13px; font-weight: 600; }
 .share-field .dlg-row { margin: 0; }
+/* Header cells are capped in width (24rem): a long title must wrap inside its cell instead of spilling over the next one */
+.markdown-body.md th { white-space: normal; }
