@@ -23,7 +23,7 @@ export const OPAQUE_KEYS = [
 ];
 
 const KNOWN_KEYS = ['appName', 'server', 'agents', 'hermesRoot', 'timezone', 'push', 'allowInlineSecrets', 'connectors', 'connectorsDir', 'fresh'];
-const SERVER_KEYS = ['port', 'hosts', 'allowedHosts', 'trustCloudflare', 'cookieSecure', 'sessionDays', 'orphanStopMinutes'];
+const SERVER_KEYS = ['port', 'hosts', 'allowedHosts', 'trustCloudflare', 'cookieSecure', 'sessionDays', 'sessionMaxAgeDays', 'orphanStopMinutes'];
 const PUSH_KEYS = ['subject'];
 const CONNECTOR_KEYS = ['id', 'type', 'enabled', 'cat', 'limit', 'config', 'credentials', 'schedule', 'name', 'stack'];
 const FRESH_KEYS = ['content', 'categories', 'taste', 'filters', 'writer'];
@@ -233,6 +233,10 @@ export function validate(input) {
       if (server.sessionDays !== undefined) {
         if (isInteger(server.sessionDays) && server.sessionDays > 0) out.sessionDays = server.sessionDays;
         else errors.push('server.sessionDays: must be a positive integer');
+      }
+      if (server.sessionMaxAgeDays !== undefined) {
+        if (isInteger(server.sessionMaxAgeDays) && server.sessionMaxAgeDays > 0) out.sessionMaxAgeDays = server.sessionMaxAgeDays;
+        else errors.push('server.sessionMaxAgeDays: must be a positive integer');
       }
       if (server.orphanStopMinutes !== undefined) {
         if (typeof server.orphanStopMinutes === 'number' && Number.isFinite(server.orphanStopMinutes) && server.orphanStopMinutes >= 0) {

@@ -83,6 +83,12 @@ function cookieHeader(req, value, maxAgeSeconds) {
   return `${COOKIE}=${value}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${maxAgeSeconds}${config.cookieSecure || isHttps(req) ? '; Secure' : ''}`;
 }
 
+// The server slides the session window; the cookie has to follow it, or the browser drops it at the original Max-Age.
+function renewCookie(req, res, session) {
+  if (!session?.renewed) return;
+  res.setHeader('Set-Cookie', cookieHeader(req, session.token, Math.max(0, Math.floor((session.expiresAt - Date.now()) / 1000))));
+}
+
 function currentSession(req) {
   const token = parseCookies(req.headers.cookie)[COOKIE];
   const session = sessions.get(token);
@@ -707,6 +713,7 @@ async function handle(req, res) {
       if (url.pathname === '/api/fresh/bootstrap' && ['GET', 'POST'].includes(req.method)) return await freshBootstrap(req, res, url);
       const session = currentSession(req);
       if (!session) throw new HttpError(401, 'Authentication required.', 'unauthorized');
+      renewCookie(req, res, session);
       if (!['GET', 'HEAD'].includes(req.method)) {
         checkOrigin(req);
         // The service worker has no CSRF token (it never reads the page) and /api/push/ack only writes a log line, so it
@@ -750,7 +757,11 @@ function listen(host, port, onListening) {
 export async function start(options = {}) {
   const authFile = path.join(config.dataDir, 'auth-record.json');
   if (!fs.existsSync(authFile)) throw new Error('No login credentials yet. Run first: npm run set-password');
+  // Test seam: with NODE_ENV=test the login clock is read from a file, so tests can move to the next authenticator time step
+  // (a code is accepted once, so every login in a test needs a fresh step).
+  const clockFile = process.env.NODE_ENV === 'test' ? process.env.HERMES_WEB_TEST_AUTH_CLOCK : '';
   auth = createAuthenticator({
+    ...(clockFile ? { now: () => Number(fs.readFileSync(clockFile, 'utf8')) || Date.now() } : {}),
     record: readAuthRecord(authFile),
     stateFile: path.join(config.dataDir, 'login-state.json'),
     recoveryFile: path.join(config.dataDir, 'recovery-codes.json'),

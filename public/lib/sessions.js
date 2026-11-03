@@ -1,4 +1,5 @@
 // Sidebar session list: source switch, local search, date groups, rename/delete and "Load more".
+import { askText } from './ask-story.js';
 import { h, $ } from './dom.js';
 import { api, agentPath } from './api.js';
 import { state, emit, on, runningSessionIds } from './state.js';
@@ -177,7 +178,7 @@ function feedHitsSection(query) {
 function openFeedHit(item) {
   const ask = (story) => {
     emit('session:select', null);
-    const text = t('feed.ask.prompt', { title: story.original || story.title, url: story.url });
+    const text = askText(story);
     setTimeout(() => window.dispatchEvent(new CustomEvent('hermes:shared', { detail: { text } })), 250);
   };
   import('./fresh-reader.js').then(({ openReader }) => openReader({ id: item.id, item, ask, onSave: (saved) => { item.saved = saved; } }));

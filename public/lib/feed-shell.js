@@ -1,6 +1,7 @@
 // "Feed" interface style, the app around the chat, laid out like Instagram: on a phone a top bar, a row of stories, posts
 // (one per chat) and an icon tab bar; on a desktop a left navigation column, the feed in the middle and a small column
 // on the right. Chats open with the usual `session:select` event, so everything inside a chat is the normal app.
+import { askText } from './ask-story.js';
 import { h, $ } from './dom.js';
 import { icon } from './icons.js';
 import { api, agentPath } from './api.js';
@@ -309,7 +310,8 @@ export function initFeedShell() {
   // "Ask <agent>" on a story: an empty chat with the story already written in the box, ready to send.
   const ask = (item) => {
     emit('session:select', null);
-    const text = t('feed.ask.prompt', { title: item.original || item.title, url: item.url });
+    const text = askText(item); // the title and link come from the internet: see ask-story.js
+
     setTimeout(() => window.dispatchEvent(new CustomEvent('hermes:shared', { detail: { text } })), 250);
   };
   fresh = createFresh({ scroller, ask });

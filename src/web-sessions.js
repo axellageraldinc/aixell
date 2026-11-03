@@ -50,12 +50,15 @@ export function createSessionStore({ file, days, maxAgeDays, now = Date.now }) {
       if (!entry) return null;
       const at = now();
       if (entry.expiresAt <= at || entry.createdAt + maxAgeDays * DAY <= at) { delete sessions[key]; persist(); return null; }
+      let renewed = false;
       if (at - entry.lastRefresh > 3_600_000) {
         entry.lastRefresh = at;
         entry.expiresAt = Math.min(at + days * DAY, entry.createdAt + maxAgeDays * DAY);
         persist();
+        renewed = true;
       }
-      return entry;
+      // `renewed`: the server-side window just moved, so the browser cookie must be re-issued with the new expiry.
+      return { ...entry, renewed };
     },
     destroy(token) {
       if (typeof token === 'string' && delete sessions[sha(token)]) persist();

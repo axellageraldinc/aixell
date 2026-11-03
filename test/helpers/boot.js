@@ -77,7 +77,12 @@ export async function boot(options = {}) {
   for (const [name, content] of Object.entries(files)) fs.writeFileSync(path.join(dataDir, name), content, { mode: 0o600 });
   if (seed) seedFresh(dataDir, typeof seed === 'number' ? seed : 40);
 
+  // Every totp() call moves this clock one 30 s step forward, so each login gets a code the app has not seen yet.
+  const clockFile = path.join(dir, 'auth-clock');
+  fs.writeFileSync(clockFile, String(Date.now()));
+  process.env.HERMES_WEB_TEST_AUTH_CLOCK = clockFile;
   const appEnv = {
+    NODE_ENV: 'test', HERMES_WEB_TEST_AUTH_CLOCK: clockFile,
     HERMES_ROOT: hermesRoot, HERMES_WEB_DATA_DIR: dataDir, HERMES_WEB_AGENTS: AGENT_NAME, HERMES_WEB_PORT: '0', HERMES_WEB_HOSTS: '127.0.0.1',
     // An empty config file: the developer's own config.json in the repo root must not change what the tests see.
     HERMES_WEB_CONFIG: path.join(dir, 'config.json'),

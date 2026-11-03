@@ -36,7 +36,8 @@ only warn and are ignored.
 | `server.allowedHosts` | string[] | `[]` | Extra `Host` header names accepted (anti DNS-rebinding). `localhost` and `server.hosts` are always accepted. |
 | `server.trustCloudflare` | boolean | `false` | Honour `CF-Connecting-IP` for requests from a loopback peer (the local cloudflared connector). |
 | `server.cookieSecure` | boolean | `false` | Always mark session cookies `Secure`. HTTPS requests get it anyway. |
-| `server.sessionDays` | integer > 0 | `30` | Session cookie lifetime. |
+| `server.sessionDays` | integer > 0 | `90` | Sliding session lifetime: each use (at most hourly) pushes the expiry out by this many days, and the cookie is re-issued with it. |
+| `server.sessionMaxAgeDays` | integer > 0 | `365` | Absolute limit: a session ends this long after sign-in however much it is used. |
 | `server.orphanStopMinutes` | number ≥ 0 | `20` | Stop a run nobody watches after this long. `0` disables it. |
 | `agents` | string[] | `["default"]` | Hermes profile names this site serves. |
 | `hermesRoot` | string | `~/.hermes` | Hermes home; profiles are read from `<hermesRoot>/profiles`. A `~` in a configured value is used literally, so write the absolute path. |

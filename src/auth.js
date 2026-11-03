@@ -27,10 +27,11 @@ function base32Decode(value) {
 }
 
 // RFC 6238 TOTP (SHA1 / 6 digits / 30s, ±1 step) for a pre-provisioned secret.
-export function verifyTotp(secret, code, at = Date.now(), { step = 30, digits = 6, skew = 1 } = {}) {
-  if (typeof secret !== 'string' || !new RegExp(`^\\d{${digits}}$`).test(code || '')) return false;
+// Returns the matching time-step counter (a number, so 0 is a valid hit only via `!== null`) or null. verifyTotp keeps the boolean API.
+export function matchTotp(secret, code, at = Date.now(), { step = 30, digits = 6, skew = 1 } = {}) {
+  if (typeof secret !== 'string' || !new RegExp(`^\\d{${digits}}$`).test(code || '')) return null;
   let key;
-  try { key = base32Decode(secret); } catch { return false; }
+  try { key = base32Decode(secret); } catch { return null; }
   const counter = Math.floor(at / 1000 / step);
   for (let drift = -skew; drift <= skew; drift++) {
     const message = Buffer.alloc(8);
@@ -38,10 +39,11 @@ export function verifyTotp(secret, code, at = Date.now(), { step = 30, digits = 
     const mac = crypto.createHmac('sha1', key).update(message).digest();
     const offset = mac[mac.length - 1] & 0x0f;
     const value = (mac.readUInt32BE(offset) & 0x7fffffff) % 10 ** digits;
-    if (constantEqual(String(value).padStart(digits, '0'), code)) return true;
+    if (constantEqual(String(value).padStart(digits, '0'), code)) return counter + drift;
   }
-  return false;
+  return null;
 }
+export const verifyTotp = (secret, code, at, options) => matchTotp(secret, code, at, options) !== null;
 
 export function readAuthRecord(file) {
   const stat = fs.lstatSync(file);
@@ -58,16 +60,17 @@ export function readAuthRecord(file) {
 export function createAuthenticator({ record, stateFile, recoveryFile, now = Date.now, derive = scrypt }) {
   const windowMs = 15 * 60 * 1000;
   const attempts = new Map();
-  let global = { start: now(), count: 0 }, hashing = false;
+  let global = { start: now(), count: 0 }, hashing = false, lastTotpStep = -1;
   if (stateFile && fs.existsSync(stateFile)) {
     const saved = JSON.parse(fs.readFileSync(stateFile, 'utf8')); // Corrupt rate state fails startup closed.
+    if (Number.isInteger(saved.lastTotpStep)) lastTotpStep = saved.lastTotpStep;
     if (saved.global && Number.isFinite(saved.global.start) && Number.isInteger(saved.global.count)) global = saved.global;
     for (const [key, value] of (Array.isArray(saved.clients) ? saved.clients : []).slice(-512)) if (typeof key === 'string' && Number.isFinite(value?.start) && Number.isInteger(value?.count)) attempts.set(key, value);
   }
   function persist() {
     if (!stateFile) return;
     const temporary = `${stateFile}.${process.pid}.tmp`;
-    fs.writeFileSync(temporary, JSON.stringify({ global, clients: [...attempts] }), { mode: 0o600 });
+    fs.writeFileSync(temporary, JSON.stringify({ global, clients: [...attempts], lastTotpStep }), { mode: 0o600 });
     fs.renameSync(temporary, stateFile);
   }
   const clientKey = client => crypto.createHash('sha256').update(client).digest('hex');
@@ -81,7 +84,14 @@ export function createAuthenticator({ record, stateFile, recoveryFile, now = Dat
     // Second factor: pre-provisioned authenticator code, or a single-use recovery code.
     verifySecondFactor(code) {
       const raw = typeof code === 'string' ? code.trim() : '';
-      if (verifyTotp(record.totpSecret, raw.replace(/\D/g, ''), now())) return true;
+      // RFC 6238 section 5.2: a code is accepted once. A time step at or before the last accepted one is a replay.
+      const step = matchTotp(record.totpSecret, raw.replace(/\D/g, ''), now());
+      if (step !== null) {
+        if (step <= lastTotpStep) return false;
+        lastTotpStep = step;
+        persist();
+        return true;
+      }
       const normalized = raw.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
       if (normalized.length < 10 || !Array.isArray(record.recoveryHashes) || !record.recoveryHashes.length || !recoveryFile) return false;
       const digest = crypto.createHash('sha256').update(normalized).digest('hex');

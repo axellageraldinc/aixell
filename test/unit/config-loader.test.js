@@ -114,8 +114,8 @@ test('env-only behaviour matches the old src/config.js exactly', () => {
   assert.deepEqual(config.hosts, ['10.1.2.3', '127.0.0.1']);
   assert.deepEqual([...config.allowedHostnames], ['localhost', '10.1.2.3', '127.0.0.1']);
   assert.deepEqual(config.agentNames, ['main']);
-  assert.equal(config.sessionDays, 30);
-  assert.equal(config.sessionMaxAgeDays, 90);
+  assert.equal(config.sessionDays, 90);
+  assert.equal(config.sessionMaxAgeDays, 365);
   assert.equal(config.uploadMaxBytes, 25 * 1024 * 1024);
   assert.equal(config.textInlineMaxBytes, 100 * 1024);
   assert.equal(config.jsonBodyMaxBytes, 2 * 1024 * 1024);

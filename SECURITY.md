@@ -43,8 +43,12 @@ implemented in this repository; verify them in the cited files when changing the
   0640), otherwise the server refuses to start (`src/auth.js`).
 - The session cookie is `HttpOnly`, `SameSite=Lax`, and `Secure` when served over
   HTTPS (`server.js`).
-- Session lifetime is a sliding window with an absolute maximum age
-  (`src/web-sessions.js`).
+- Session lifetime is a sliding window (default 90 days of use, renewed at most hourly, and the cookie is re-issued with the
+  new expiry) with an absolute maximum age (default 365 days). Both are configurable (`src/web-sessions.js`, `server.js`).
+- An authenticator code is accepted once: a time step at or before the last accepted one is rejected as a replay
+  (RFC 6238, section 5.2; `src/auth.js`).
+- Text that comes from the internet and goes into a chat message (the title and link of a feed story) is cleaned of control
+  and invisible characters, limited to one short line and a plain http(s) link, and fenced as data (`public/lib/untrusted.js`).
 
 **CSRF.**
 - Every state-changing request (`POST`, `PUT`, `PATCH`, `DELETE`) must carry the

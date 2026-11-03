@@ -69,6 +69,6 @@ test('the same environment without a config file gives the same values as the ol
   assert.equal(loaded.dataDir, env.HERMES_WEB_DATA_DIR);
   assert.equal(loaded.cookieSecure, false);
   assert.equal(loaded.trustCloudflare, false);
-  assert.equal(loaded.sessionDays, 30);
+  assert.equal(loaded.sessionDays, 90);
   assert.equal(loaded.orphanStopMinutes, 20);
 });

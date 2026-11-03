@@ -123,3 +123,14 @@ test('the fixture record used by the test apps matches the documented test crede
   assert.deepEqual(await auth.verify('tester', 'correct horse battery staple', 'fixture-check'), { ok: true });
   assert.equal(record.totpSecret, SECRET);
 });
+
+test('verifySecondFactor: an authenticator code works once, a later step still works, an older one never does', () => {
+  const { clock, auth } = fixture();
+  clock.t = 1_700_000_000_000;
+  const code = totp(SECRET, clock.t);
+  assert.equal(auth.verifySecondFactor(code), true);
+  assert.equal(auth.verifySecondFactor(code), false, 'replay of the same code');
+  clock.t += 30_000;
+  assert.equal(auth.verifySecondFactor(totp(SECRET, clock.t)), true, 'the next time step is fine');
+  assert.equal(auth.verifySecondFactor(code), false, 'an earlier step stays rejected');
+});
