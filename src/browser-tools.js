@@ -22,6 +22,11 @@ export const BROWSER_TOOLS = [
   { name: 'recording_list', description: 'List the tasks the user has recorded by doing them in the browser.', inputSchema: obj({}) },
   { name: 'recording_get', description: 'The steps of a recording. Use it to write a skill that does the same task.', inputSchema: obj({ id: { type: 'string' } }, ['id']) },
   { name: 'recording_replay', description: 'Replay a recording on a shared tab. params maps a step number or field label to the value to type.', inputSchema: obj({ ...tab, id: { type: 'string' }, params: { type: 'object' } }, ['tabId', 'id']) },
+  { name: 'pipeline_create', description: 'Turn a recording into a pipeline: named parameters, the recorded steps, and (when the page fetched its data from an API) the request behind it. Returns the parameters you can set.', inputSchema: obj({ recordingId: { type: 'string' }, name: { type: 'string' } }, ['recordingId']) },
+  { name: 'pipeline_list', description: 'List pipelines and their parameters.', inputSchema: obj({}) },
+  { name: 'pipeline_get', description: 'The full definition of a pipeline: parameters, steps, API candidates.', inputSchema: obj({ id: { type: 'string' } }, ['id']) },
+  { name: 'pipeline_run', description: 'Run a pipeline on a shared tab (See & use level) with new parameter values, e.g. params {"search": "Celeste"}. mode "auto" calls the recorded API when there is one and falls back to replaying the steps; "api" or "ui" force one. Returns the data (JSON) or the page text.', inputSchema: obj({ ...tab, id: { type: 'string' }, params: { type: 'object' }, mode: { enum: ['auto', 'api', 'ui'] } }, ['tabId', 'id']) },
+  { name: 'pipeline_delete', description: 'Delete a pipeline.', inputSchema: obj({ id: { type: 'string' } }, ['id']) },
   { name: 'recording_delete', description: 'Delete a recording.', inputSchema: obj({ id: { type: 'string' } }, ['id']) },
 ];
 export const BROWSER_TOOL_NAMES = new Set(BROWSER_TOOLS.map((t) => t.name));
