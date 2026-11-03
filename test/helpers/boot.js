@@ -128,7 +128,7 @@ export async function boot(options = {}) {
     // Signs in (password + current authenticator code) and returns a client carrying the session cookie and CSRF token.
     async login() {
       const client = makeClient(base);
-      const response = await client.raw('POST', '/api/login', { json: { username: USERNAME, password: PASSWORD, code: totp(TOTP_SECRET) } });
+      const response = await client.raw('POST', '/api/login', { json: { username: USERNAME, password: PASSWORD, code: totp(TOTP_SECRET, undefined, clockFile) } });
       if (response.status !== 200) throw new Error(`login failed: ${response.status} ${await response.text()}`);
       client.cookie = (response.headers.getSetCookie?.() ?? []).map((c) => c.split(';')[0]).join('; ');
       client.csrf = (await client.get('/api/me')).data.csrf;

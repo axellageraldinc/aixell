@@ -21,6 +21,7 @@ export const defaults = () => ({
     port: 8300,
     hosts: ['127.0.0.1'],
     allowedHosts: [],
+    browserExtensionIds: [],
     trustCloudflare: false,
     cookieSecure: false,
     sessionDays: 90,
@@ -124,6 +125,7 @@ export function applyEnv(merged, env = process.env) {
   if (envValue(env, 'HERMES_WEB_PORT') !== null) out.server.port = Number(env.HERMES_WEB_PORT);
   if (env.HERMES_WEB_HOSTS !== undefined) out.server.hosts = list(env.HERMES_WEB_HOSTS, '');
   if (env.HERMES_WEB_ALLOWED_HOSTS !== undefined) out.server.allowedHosts = list(env.HERMES_WEB_ALLOWED_HOSTS, '');
+  if (env.HERMES_WEB_BROWSER_EXTENSION_IDS !== undefined) out.server.browserExtensionIds = list(env.HERMES_WEB_BROWSER_EXTENSION_IDS, '');
   if (env.HERMES_WEB_AGENTS !== undefined) out.agents = list(env.HERMES_WEB_AGENTS, '');
   if (envValue(env, 'HERMES_WEB_SESSION_DAYS') !== null) out.server.sessionDays = Number(env.HERMES_WEB_SESSION_DAYS);
   if (env.HERMES_WEB_COOKIE_SECURE !== undefined) out.server.cookieSecure = env.HERMES_WEB_COOKIE_SECURE === '1';
@@ -165,6 +167,7 @@ export function toRuntimeConfig(settings, { root = ROOT, env = process.env } = {
     allowedHostnames: new Set(['localhost', ...hosts, ...settings.server.allowedHosts]),
     hermesRoot: settings.hermesRoot,
     agentNames: settings.agents,
+    browserExtensionIds: settings.server.browserExtensionIds,
     sessionDays: settings.server.sessionDays,
     sessionMaxAgeDays: settings.server.sessionMaxAgeDays,
     cookieSecure: settings.server.cookieSecure,

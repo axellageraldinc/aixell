@@ -9,6 +9,7 @@ import { config, EFFORT_LEVELS, SERVICE_TIERS } from './src/config.js';
 import { HttpError, SECURITY_HEADERS, parseCookies, readBody, readJson, requireId, sendError, sendJson } from './src/http.js';
 import { createAuthenticator, readAuthRecord } from './src/auth.js';
 import { createSessionStore, sessionFile } from './src/web-sessions.js';
+import { createBridge } from './src/browser-bridge.js';
 import { agentFetch, agentJson, getAgent, isOnline, listAgentDefinitions, publicAgent } from './src/agents.js';
 import { getModels, getServedModel } from './src/models.js';
 import { coverFile, listCovers, makeCover, removeCover, thumbFile } from './src/covers.js';
@@ -44,6 +45,7 @@ const COOKIE = 'hw_session';
 // Set by start(): the login record and the server-side sessions are only read when the app actually starts.
 let auth;
 let sessions;
+let bridge; // the agent <-> browser extension link (src/browser-bridge.js); off unless extension IDs are configured
 
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.json': 'application/json; charset=utf-8', '.webmanifest': 'application/manifest+json', '.woff2': 'font/woff2', '.mjs': 'text/javascript; charset=utf-8' };
 const PUBLIC_UNAUTHENTICATED = /^\/(login[\w.-]*\.(html|js|css)|theme\.js|app\.css|ui\.css|favicon\.[a-z]+|manifest\.webmanifest|sw\.js|(icon-[\w-]+|apple-touch-icon)\.png|vendor\/fonts\/[\w.-]+\.(css|woff2)|lib\/[\w./-]+\.js|locales\/[\w.-]+\.js)$/;
@@ -246,6 +248,17 @@ async function login(req, res) {
   auth.clearAttempts(client);
   const created = sessions.create({ ip: client, userAgent: req.headers['user-agent'] });
   sendJson(res, 200, { ok: true }, { 'Set-Cookie': cookieHeader(req, created.token, config.sessionDays * 86400) });
+}
+
+// ---------- browser bridge (extension side) ----------
+async function browserRoute(req, res, url, session) {
+  if (url.pathname === '/api/browser/status' && req.method === 'GET') return sendJson(res, 200, bridge.status());
+  if (url.pathname === '/api/browser/events' && req.method === 'GET') return bridge.openStream(req, res, { sessionToken: session.token, user: auth.username });
+  if (url.pathname === '/api/browser/results' && req.method === 'POST') {
+    if (!sameConstant(req.headers['x-csrf-token'], session.csrf)) throw new HttpError(403, 'Invalid CSRF token.', 'bad_csrf');
+    return sendJson(res, 200, bridge.receive(req, await readJson(req, 4_000_000)));
+  }
+  throw new HttpError(404, 'Not found.', 'not_found');
 }
 
 // ---------- agent helpers ----------
@@ -711,9 +724,18 @@ async function handle(req, res) {
       if (url.pathname === '/api/fresh/ingest' && req.method === 'POST') return await freshIngest(req, res);
       if (url.pathname === '/api/fresh/x-run' && req.method === 'POST') return await freshXRun(req, res, url);
       if (url.pathname === '/api/fresh/bootstrap' && ['GET', 'POST'].includes(req.method)) return await freshBootstrap(req, res, url);
+      // The agent's side of the browser bridge: loopback only, its own bearer token, no browser session.
+      if (url.pathname === '/api/browser/call' && req.method === 'POST') {
+        bridge.authorizeCall(req);
+        const body = await readJson(req, 120_000);
+        return sendJson(res, 200, await bridge.call(body.tool, body.args ?? {}));
+      }
       const session = currentSession(req);
       if (!session) throw new HttpError(401, 'Authentication required.', 'unauthorized');
       renewCookie(req, res, session);
+      // The extension's side: it has its own origin, so it is checked here (exact extension ID, session cookie, CSRF token)
+      // instead of by the same-origin rule below.
+      if (url.pathname.startsWith('/api/browser/')) return await browserRoute(req, res, url, session);
       if (!['GET', 'HEAD'].includes(req.method)) {
         checkOrigin(req);
         // The service worker has no CSRF token (it never reads the page) and /api/push/ack only writes a log line, so it
@@ -767,6 +789,7 @@ export async function start(options = {}) {
     recoveryFile: path.join(config.dataDir, 'recovery-codes.json'),
   });
   sessions = createSessionStore({ file: sessionFile(config.dataDir), days: config.sessionDays, maxAgeDays: config.sessionMaxAgeDays });
+  bridge = createBridge({ extensionIds: options.browserExtensionIds ?? config.browserExtensionIds, dataDir: config.dataDir, isSessionValid: (token) => Boolean(sessions.get(token)) });
   const hosts = options.hosts ?? config.hosts;
   const wanted = options.port ?? config.port;
   const ports = await Promise.all(hosts.map((host) => new Promise((resolve) => listen(host, wanted, (_server, bound) => resolve(bound)))));
@@ -774,7 +797,7 @@ export async function start(options = {}) {
   if (runFresh) try { startFresh(getAgent(config.agentNames[0])); } catch (err) { console.warn(`[hermes-web] Fresh feed not started: ${err.message}`); }
   return {
     servers: [...servers], port: ports[0],
-    close: () => Promise.all(servers.splice(0).map((server) => new Promise((resolve) => { server.close(resolve); server.closeAllConnections?.(); }))),
+    close: () => { bridge?.close(); return Promise.all(servers.splice(0).map((server) => new Promise((resolve) => { server.close(resolve); server.closeAllConnections?.(); }))); },
   };
 }
 

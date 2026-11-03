@@ -23,7 +23,7 @@ export const OPAQUE_KEYS = [
 ];
 
 const KNOWN_KEYS = ['appName', 'server', 'agents', 'hermesRoot', 'timezone', 'push', 'allowInlineSecrets', 'connectors', 'connectorsDir', 'fresh'];
-const SERVER_KEYS = ['port', 'hosts', 'allowedHosts', 'trustCloudflare', 'cookieSecure', 'sessionDays', 'sessionMaxAgeDays', 'orphanStopMinutes'];
+const SERVER_KEYS = ['port', 'hosts', 'allowedHosts', 'browserExtensionIds', 'trustCloudflare', 'cookieSecure', 'sessionDays', 'sessionMaxAgeDays', 'orphanStopMinutes'];
 const PUSH_KEYS = ['subject'];
 const CONNECTOR_KEYS = ['id', 'type', 'enabled', 'cat', 'limit', 'config', 'credentials', 'schedule', 'name', 'stack'];
 const FRESH_KEYS = ['content', 'categories', 'taste', 'filters', 'writer'];
@@ -217,6 +217,10 @@ export function validate(input) {
       if (server.hosts !== undefined) {
         if (isStringArray(server.hosts)) out.hosts = [...server.hosts];
         else errors.push('server.hosts: must be an array of non-empty strings');
+      }
+      if (server.browserExtensionIds !== undefined) {
+        if (Array.isArray(server.browserExtensionIds) && server.browserExtensionIds.every((id) => typeof id === 'string' && /^[a-p]{32}$/.test(id))) out.browserExtensionIds = [...server.browserExtensionIds];
+        else errors.push('server.browserExtensionIds: must be an array of Chrome extension IDs (32 letters a-p)');
       }
       if (server.allowedHosts !== undefined) {
         if (isStringArray(server.allowedHosts)) out.allowedHosts = [...server.allowedHosts];

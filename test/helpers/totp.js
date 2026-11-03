@@ -2,8 +2,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 
 // RFC 6238 code (SHA-1, 6 digits, 30 s) for a base32 secret. Independent of src/auth.js so a bug there cannot hide itself.
-export function totp(secret, at) {
-  const clockFile = process.env.HERMES_WEB_TEST_AUTH_CLOCK;
+export function totp(secret, at, clockFile = process.env.HERMES_WEB_TEST_AUTH_CLOCK) {
   if (at === undefined && clockFile && fs.existsSync(clockFile)) {
     at = (Number(fs.readFileSync(clockFile, 'utf8')) || Date.now()) + 30_000;
     fs.writeFileSync(clockFile, String(at));

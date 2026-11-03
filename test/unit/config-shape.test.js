@@ -27,6 +27,7 @@ test('config shape snapshot', () => {
     agentNames: 'array',
     sessionDays: 'number',
     sessionMaxAgeDays: 'number',
+    browserExtensionIds: 'array',
     cookieSecure: 'boolean',
     trustCloudflare: 'boolean',
     orphanStopMinutes: 'number',
