@@ -260,7 +260,7 @@ export function initComposer() {
   });
   window.addEventListener('hermes:shared', (event) => {
     const { text, files } = event.detail ?? {};
-    if (text) { input.value = text; input.dispatchEvent(new Event('input', { bubbles: true })); }
+    if (text) { input.value = event.detail.append && input.value.trim() ? `${input.value}\n\n${text}` : text; input.dispatchEvent(new Event('input', { bubbles: true })); }
     if (files?.length) attachments.add(files);
     focusInput();
   });

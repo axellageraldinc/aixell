@@ -26,6 +26,7 @@ import { initQuotaBanner } from './lib/quota-banner.js';
 import { initRedo } from './lib/redo.js';
 import { registerWorker } from './lib/push.js';
 import { initSelectGuard } from './lib/select-guard.js';
+import { initExtensionBridge } from './lib/ext-bridge.js';
 import { initUpdateCheck } from './lib/version.js';
 import { initDiag } from './lib/diag.js';
 import { initLayout } from './lib/layout.js';
@@ -121,6 +122,7 @@ async function boot() {
   initRedo();
   registerWorker();
   initSelectGuard();
+  initExtensionBridge();
   initUpdateCheck();
   initDiag();
   initUsage();

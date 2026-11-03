@@ -6,7 +6,7 @@ import net from 'node:net';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { config, EFFORT_LEVELS, SERVICE_TIERS } from './src/config.js';
-import { HttpError, SECURITY_HEADERS, parseCookies, readBody, readJson, requireId, sendError, sendJson } from './src/http.js';
+import { HttpError, SECURITY_HEADERS, allowFramingBy, parseCookies, readBody, readJson, requireId, sendError, sendJson } from './src/http.js';
 import { createAuthenticator, readAuthRecord } from './src/auth.js';
 import { createSessionStore, sessionFile } from './src/web-sessions.js';
 import { createBridge } from './src/browser-bridge.js';
@@ -789,6 +789,7 @@ export async function start(options = {}) {
     recoveryFile: path.join(config.dataDir, 'recovery-codes.json'),
   });
   sessions = createSessionStore({ file: sessionFile(config.dataDir), days: config.sessionDays, maxAgeDays: config.sessionMaxAgeDays });
+  allowFramingBy(options.browserExtensionIds ?? config.browserExtensionIds);
   bridge = createBridge({ extensionIds: options.browserExtensionIds ?? config.browserExtensionIds, dataDir: config.dataDir, isSessionValid: (token) => Boolean(sessions.get(token)) });
   const hosts = options.hosts ?? config.hosts;
   const wanted = options.port ?? config.port;

@@ -103,3 +103,12 @@ test('a command goes to the extension and its answer comes back', async () => {
   await new Promise((r) => setTimeout(r, 100));
   assert.equal((await client.get('/api/browser/status')).data.connected, false);
 });
+
+test('only the configured extension may frame the app; with no extension configured nobody may', async () => {
+  const framed = await on.client().raw('GET', '/login.html');
+  assert.match(framed.headers.get('content-security-policy'), new RegExp(`frame-ancestors chrome-extension://${EXT}(;|$)`));
+  assert.doesNotMatch(framed.headers.get('content-security-policy'), /frame-ancestors[^;]*(\*|https?:|'self')/);
+  assert.equal(framed.headers.get('x-frame-options'), null);
+  const client = await on.login();
+  assert.deepEqual((await client.get('/api/browser/status')).data.extensionOrigins, [ORIGIN]);
+});

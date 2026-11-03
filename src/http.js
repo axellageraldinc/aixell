@@ -18,6 +18,17 @@ export const SECURITY_HEADERS = {
   'Permissions-Policy': 'camera=(), microphone=(self), geolocation=()',
 };
 
+// The aixell browser extension may show this app inside its side panel. Only the extension IDs in the settings may frame it
+// (nobody else: clickjacking protection stays). `X-Frame-Options` cannot name an extension, so it is dropped in that case and
+// `frame-ancestors` does the job in every current browser.
+const BASE_CSP = SECURITY_HEADERS['Content-Security-Policy'];
+const BASE_XFO = SECURITY_HEADERS['X-Frame-Options'];
+export function allowFramingBy(extensionIds = []) {
+  if (!extensionIds.length) { SECURITY_HEADERS['Content-Security-Policy'] = BASE_CSP; SECURITY_HEADERS['X-Frame-Options'] = BASE_XFO; return; }
+  SECURITY_HEADERS['Content-Security-Policy'] = BASE_CSP.replace("frame-ancestors 'none'", `frame-ancestors ${extensionIds.map((id) => `chrome-extension://${id}`).join(' ')}`);
+  delete SECURITY_HEADERS['X-Frame-Options'];
+}
+
 export function sendJson(res, status, payload, headers = {}) {
   const body = JSON.stringify(payload);
   res.writeHead(status, { ...SECURITY_HEADERS, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'Content-Length': Buffer.byteLength(body), ...headers });

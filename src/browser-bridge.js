@@ -109,6 +109,6 @@ export function createBridge({ extensionIds = [], dataDir, isSessionValid = () =
     if (!header.startsWith('Bearer ') || !sameConstant(header.slice(7), bridgeToken())) throw new HttpError(401, 'Invalid token.', 'unauthorized');
   }
 
-  const status = () => ({ enabled: enabled(), connected: Boolean(conn), user: conn?.user ?? null, since: conn?.since ?? null, pending: pending.size });
+  const status = () => ({ enabled: enabled(), extensionOrigins: [...allowed], connected: Boolean(conn), user: conn?.user ?? null, since: conn?.since ?? null, pending: pending.size });
   return { openStream, receive, call, authorizeCall, status, enabled, bridgeToken, close() { try { conn?.res.end(); } catch { /* closed */ } failAll('closed', 'The server is stopping.'); } };
 }
