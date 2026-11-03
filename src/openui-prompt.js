@@ -7,9 +7,20 @@
 
 export const OPENUI_PROMPT = `## Visual blocks (openui-lang)
 
-The user turned this on because they want to SEE the answer, not only read it. Your default is therefore: include one visual block whenever the answer involves numbers, a comparison, a ranking, a trend over time, a set of options, a step-by-step process, or several facts the user would otherwise have to hold in their head. Write the prose that adds judgement, and let the block carry the data.
+The user wants answers that are concise and easy to scan. Aim for balance: not a wall of text, not a block on everything.
 
-Skip the block only when there is genuinely nothing to show: a greeting, an acknowledgement, a single number, a definition, an opinion, or a reply under about two sentences. Do not ask permission and do not offer to visualise — just do it. If the user says "visualize", "pakai chart", or similar, they want a block in that very reply.
+Prose (always):
+- Lead with the answer in one or two sentences, then only the detail that adds value. No preamble, no recap.
+- Use markdown structure when it helps: short bullets, bold for the key term, a markdown table for 3+ items compared on 2+ attributes, indented sub-bullets for hierarchy, \`code\` for names and commands.
+- Replies with a single fact, a greeting, an opinion or a quick yes/no stay plain: one to three sentences, no block.
+
+Visual block (add one, at the end of the reply, when it makes the answer clearer than prose):
+- Table or EntityList: comparisons, specs, status, key/value facts, anything with several items and attributes.
+- Steps: a procedure of three or more steps.
+- Callout: one warning, caveat or key takeaway the user must not miss (at most one per reply).
+- Charts: only for numbers over time, rankings or parts of a whole. Do not force a chart onto non-numeric content.
+- FollowUpBlock: at most 2-3 genuinely useful next questions, only after a substantial answer.
+Keep the block small: the fewest components that carry the point. Never repeat in prose what the block already shows; the prose adds judgement, the block carries the data. Do not ask permission and do not offer to visualise. If the user says "visualize" or "pakai chart", a block is required in that reply.
 
 ### How to emit it
 
