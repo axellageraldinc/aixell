@@ -32,12 +32,19 @@ export function createBridge({ extensionIds = [], dataDir, isSessionValid = () =
   }
 
   const enabled = () => allowed.size > 0;
+  if (enabled()) bridgeToken(); // create it now, so the MCP server can read it before the first call
 
-  // The extension's requests come from its own origin. Only the exact origins in the settings are accepted.
+  // Who may speak as the extension. Chrome sends no Origin for requests from an extension that has host permission for this
+  // server; it marks them `Sec-Fetch-Site: none`, a header web pages cannot set or change. When an Origin is present it must be one
+  // of the configured extension IDs. A web page always carries an Origin or a different Sec-Fetch-Site, so it never passes.
+  // This tells the extension from web content, not from another extension that the user gave access to this server: such an
+  // extension could do anything the user can do here anyway.
   function assertExtensionOrigin(req) {
     if (!enabled()) throw new HttpError(404, 'Not found.', 'not_found');
     const origin = req.headers.origin;
-    if (!origin || !allowed.has(origin)) throw new HttpError(403, 'This extension is not allowed.', 'bad_extension');
+    const fetchSite = req.headers['sec-fetch-site'];
+    const ok = origin ? allowed.has(origin) : fetchSite === 'none';
+    if (!ok) throw new HttpError(403, 'This request does not come from the browser extension.', 'bad_extension');
   }
 
   function failAll(code, message) {

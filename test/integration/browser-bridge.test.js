@@ -14,6 +14,7 @@ before(async () => {
 });
 after(async () => { await on.stop(); await off.stop(); });
 
+const EXT_HEADERS = { origin: '', headers: { 'Sec-Fetch-Site': 'none' } };
 const callBody = (tool, args) => ({ tool, args });
 const token = () => fs.readFileSync(path.join(on.dataDir, 'browser-bridge-token'), 'utf8').trim();
 const local = (client, body, headers = {}) => client.raw('POST', '/api/browser/call', { json: body, headers: { Authorization: `Bearer ${token()}`, ...headers } });
@@ -44,11 +45,13 @@ test('the bridge is off (404) unless an extension ID is configured', async () =>
   assert.equal((await client.get('/api/browser/status')).data.enabled, false);
 });
 
-test('the event stream needs a session AND the exact extension origin', async () => {
+test('the event stream needs a session AND to look like the extension (not a web page)', async () => {
   assert.equal((await on.client().raw('GET', '/api/browser/events', { headers: { Origin: ORIGIN } })).status, 401, 'no session');
   const client = await on.login();
-  assert.equal((await client.raw('GET', '/api/browser/events')).status, 403, 'no origin');
-  assert.equal((await client.raw('GET', '/api/browser/events', { headers: { Origin: 'https://evil.example' } })).status, 403);
+  assert.equal((await client.raw('GET', '/api/browser/events')).status, 403, 'a plain request');
+  assert.equal((await client.raw('GET', '/api/browser/events', { headers: { 'Sec-Fetch-Site': 'same-origin' } })).status, 403, 'the web app itself');
+  assert.equal((await client.raw('GET', '/api/browser/events', { headers: { 'Sec-Fetch-Site': 'cross-site' } })).status, 403, 'another website');
+  assert.equal((await client.raw('GET', '/api/browser/events', { headers: { Origin: 'https://evil.example', 'Sec-Fetch-Site': 'none' } })).status, 403);
   assert.equal((await client.raw('GET', '/api/browser/events', { headers: { Origin: 'chrome-extension://zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz' } })).status, 403);
 });
 
@@ -64,7 +67,7 @@ test('the call endpoint is for local callers with the token only', async () => {
 
 test('a command goes to the extension and its answer comes back', async () => {
   const client = await on.login();
-  const stream = await client.raw('GET', '/api/browser/events', { headers: { Origin: ORIGIN } });
+  const stream = await client.raw('GET', '/api/browser/events', { origin: '', headers: { 'Sec-Fetch-Site': 'none' } }); // how Chrome marks the extension: no Origin, Sec-Fetch-Site none
   assert.equal(stream.status, 200);
   const sse = events(stream);
   assert.equal((await sse.next()).name, 'hello');
@@ -77,17 +80,19 @@ test('a command goes to the extension and its answer comes back', async () => {
 
   // answering needs the CSRF token and the extension origin
   const reply = { id: cmd.data.id, ok: true, result: { content: 'hello' } };
-  assert.equal((await client.raw('POST', '/api/browser/results', { json: reply, headers: { Origin: ORIGIN, 'X-CSRF-Token': 'wrong' } })).status, 403);
-  assert.equal((await client.raw('POST', '/api/browser/results', { json: reply, headers: { 'X-CSRF-Token': client.csrf } })).status, 403, 'no extension origin');
-  assert.equal((await client.raw('POST', '/api/browser/results', { json: reply, headers: { Origin: ORIGIN, 'X-CSRF-Token': client.csrf } })).status, 200);
+  const asExtension = (json, csrf = client.csrf) => client.raw('POST', '/api/browser/results', { json, origin: '', headers: { 'Sec-Fetch-Site': 'none', 'X-CSRF-Token': csrf } });
+  assert.equal((await asExtension(reply, 'wrong')).status, 403, 'wrong CSRF token');
+  assert.equal((await client.raw('POST', '/api/browser/results', { json: reply, headers: { 'X-CSRF-Token': client.csrf } })).status, 403, 'not marked as the extension');
+  assert.equal((await client.raw('POST', '/api/browser/results', { json: reply, origin: 'https://evil.example', headers: { 'X-CSRF-Token': client.csrf } })).status, 403, 'another origin');
+  assert.equal((await asExtension(reply)).status, 200);
   const done = await (await pending).json();
   assert.deepEqual(done, { ok: true, result: { content: 'hello' } });
-  assert.equal((await client.raw('POST', '/api/browser/results', { json: reply, headers: { Origin: ORIGIN, 'X-CSRF-Token': client.csrf } })).status, 404, 'an answer works once');
+  assert.equal((await asExtension(reply)).status, 404, 'an answer works once');
 
   // an error from the extension is passed on as an error, not as data
   const failing = local(client, callBody('page_act', { tabId: 7, action: 'click', ref: 'e1' }));
   const cmd2 = await sse.next();
-  await client.raw('POST', '/api/browser/results', { json: { id: cmd2.data.id, ok: false, error: { code: 'denied', message: 'The user did not allow this action.' } }, headers: { Origin: ORIGIN, 'X-CSRF-Token': client.csrf } });
+  await asExtension({ id: cmd2.data.id, ok: false, error: { code: 'denied', message: 'The user did not allow this action.' } });
   assert.deepEqual(await (await failing).json(), { ok: false, error: { code: 'denied', message: 'The user did not allow this action.' } });
 
   // when the browser goes away, waiting callers are released at once
