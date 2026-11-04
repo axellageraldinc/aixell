@@ -84,9 +84,10 @@ export function createBridge({ extensionIds = [], dataDir, isSessionValid = () =
   }
 
   // Agent side. Resolves with { ok, result | error }.
-  function call(tool, args = {}) {
+  // scope: { sessionId } the extension session the calling chat is tied to; the extension enforces it. internal: aixell's own context query.
+  function call(tool, args = {}, scope = null, { internal = false } = {}) {
     if (!enabled()) throw new HttpError(404, 'The browser bridge is not enabled.', 'bridge_disabled');
-    if (typeof tool !== 'string' || !BROWSER_TOOL_NAMES.has(tool)) throw new HttpError(400, 'Unknown browser tool.', 'unknown_tool');
+    if (typeof tool !== 'string' || !(BROWSER_TOOL_NAMES.has(tool) || (internal && tool === 'session_context'))) throw new HttpError(400, 'Unknown browser tool.', 'unknown_tool');
     if (!args || typeof args !== 'object' || Array.isArray(args) || Buffer.byteLength(JSON.stringify(args)) > MAX_ARGS_BYTES) throw new HttpError(400, 'Arguments must be a small JSON object.', 'bad_args');
     if (!conn) throw new HttpError(503, 'The browser is not connected. The user must open Chrome with the aixell extension and be signed in.', 'browser_not_connected');
     if (pending.size >= MAX_PENDING) throw new HttpError(429, 'Too many browser commands are waiting.', 'too_many');
@@ -94,7 +95,7 @@ export function createBridge({ extensionIds = [], dataDir, isSessionValid = () =
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => { pending.delete(id); reject(new HttpError(504, 'The browser did not answer in time (the user may not have answered a question).', 'browser_timeout')); }, CALL_TIMEOUT_MS);
       pending.set(id, { resolve, reject, timer });
-      conn.res.write(`event: cmd\ndata: ${JSON.stringify({ id, tool, args })}\n\n`);
+      conn.res.write(`event: cmd\ndata: ${JSON.stringify({ id, tool, args, ...(scope ? { scope } : {}) })}\n\n`);
     });
   }
 

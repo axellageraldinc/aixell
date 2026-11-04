@@ -3,6 +3,7 @@
 // The text lands in the box for the user to read and send; nothing is sent by itself.
 import { api } from './api.js';
 import { emit } from './state.js';
+import { setExtensionSession } from './ext-context.js';
 
 export async function initExtensionBridge() {
   if (window.parent === window) return;
@@ -12,6 +13,7 @@ export async function initExtensionBridge() {
   window.addEventListener('message', (event) => {
     if (event.source !== window.parent || !origins.includes(event.origin)) return;
     const data = event.data;
+    if (data?.type === 'aixell-chrome:context') { setExtensionSession(data.session); return; } // which extension session is selected
     if (data?.type === 'aixell-chrome:new-chat') { emit('session:select', null); return; } // the same as "New chat" in the app
     if (!data || data.type !== 'aixell-chrome:insert' || typeof data.text !== 'string') return;
     window.dispatchEvent(new CustomEvent('hermes:shared', { detail: { text: data.text.slice(0, 60000), append: true } }));

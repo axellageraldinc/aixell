@@ -19,10 +19,12 @@ const reply = (id, result) => process.stdout.write(`${JSON.stringify({ jsonrpc: 
 const fail = (id, code, message) => process.stdout.write(`${JSON.stringify({ jsonrpc: '2.0', id, error: { code, message } })}\n`);
 
 async function callTool(name, args) {
+  const { chat_key: key, ...rest } = args ?? {};
+  if (!key) return { isError: true, content: [{ type: 'text', text: 'Missing chat_key. Use the browser key from your instructions in every browser tool call.' }] };
   let token;
   try { token = fs.readFileSync(path.join(dataDir, 'browser-bridge-token'), 'utf8').trim(); } catch { return { isError: true, content: [{ type: 'text', text: 'The browser bridge is not set up on this server.' }] }; }
   let res;
-  try { res = await fetch(`${base}/api/browser/call`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ tool: name, args }), signal: AbortSignal.timeout(160_000) }); }
+  try { res = await fetch(`${base}/api/browser/call`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ tool: name, args: rest, key }), signal: AbortSignal.timeout(160_000) }); }
   catch { return { isError: true, content: [{ type: 'text', text: 'Could not reach aixell.' }] }; }
   const body = await res.json().catch(() => null);
   if (!res.ok) return { isError: true, content: [{ type: 'text', text: body?.error?.message ?? `aixell answered ${res.status}.` }] };

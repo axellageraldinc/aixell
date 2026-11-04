@@ -32,4 +32,10 @@ export const BROWSER_TOOLS = [
   { name: 'pipeline_delete', description: 'Delete a pipeline.', inputSchema: obj({ id: { type: 'string' } }, ['id']) },
   { name: 'recording_delete', description: 'Delete a recording.', inputSchema: obj({ id: { type: 'string' } }, ['id']) },
 ];
+// Every tool needs the key of the chat it is called from (the agent finds it in its instructions). The key decides which session the chat may use.
+const KEY = { chat_key: { type: 'string', description: 'The browser key of this chat, from your instructions. Required in every call; keep it secret.' } };
+for (const tool of BROWSER_TOOLS) {
+  tool.inputSchema = { ...tool.inputSchema, properties: { ...KEY, ...tool.inputSchema.properties }, required: ['chat_key', ...tool.inputSchema.required] };
+}
+
 export const BROWSER_TOOL_NAMES = new Set(BROWSER_TOOLS.map((t) => t.name));

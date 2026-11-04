@@ -10,6 +10,7 @@ import { HttpError, SECURITY_HEADERS, allowFramingBy, parseCookies, readBody, re
 import { createAuthenticator, readAuthRecord } from './src/auth.js';
 import { createSessionStore, sessionFile } from './src/web-sessions.js';
 import { createBridge } from './src/browser-bridge.js';
+import { bind as bindChat, bindingOf, byKey as chatByKey, extSessionOf } from './src/ext-chats.js';
 import { agentFetch, agentJson, getAgent, isOnline, listAgentDefinitions, publicAgent } from './src/agents.js';
 import { getModels, getServedModel } from './src/models.js';
 import { coverFile, listCovers, makeCover, removeCover, thumbFile } from './src/covers.js';
@@ -318,12 +319,27 @@ async function sessionPreview(agent, sessionPath, full) {
 }
 
 // This chat is a web page, not a plain terminal: it can show what the agent makes, as long as the reply says where it is.
-// When the owner's browser is connected through the aixell extension, the agent has to know it, and that "this page" means a shared tab.
-const BROWSER_HINT = 'The owner\'s own browser is connected through the aixell browser extension, and you have browser tools (mcp__aixell_browser__*: sessions_list, tabs_list, tabs_read, page_read, page_screenshot, page_act, page_navigate, tab_open, page_dialog, network_*, recording_*, pipeline_*). '
-  + 'When the owner says "this page", "that form", "the site", "it" or "do it there", they almost always mean a page they shared in the extension. Do not say you cannot access their accounts or their browser: call sessions_list or tabs_list and work on the page directly with the tools. '
-  + 'If no tab is shared, ask them to press "Let aixell see this page" in the extension. If there are several sessions, name the session in every call. '
+// Browser access. Only chats started from the aixell extension have it: such a chat is tied to one extension session and gets a private key,
+// which the agent must send with every browser tool call (src/ext-chats.js). Other chats are told how to get access.
+const BROWSER_TOOLS_LINE = 'mcp__aixell_browser__*: sessions_list, tabs_list, tabs_read, page_read, page_screenshot, page_act, page_navigate, tab_open, page_dialog, network_*, recording_*, pipeline_*';
+const BROWSER_HINT_UNBOUND = 'The owner\'s browser is connected through the aixell extension, but browser tools only work in chats started from the extension panel (its + button). '
+  + 'If the owner asks you to use their browser or "this page", tell them to start a new chat from the extension panel. Do not say you cannot access their accounts.';
+const browserHintBound = (binding, context) => `This chat belongs to the aixell browser extension and is tied to the session "${binding.sessionName}". You have browser tools (${BROWSER_TOOLS_LINE}). `
+  + `Every browser tool call must include chat_key: ${binding.key}  Keep that key secret: never show it to the owner, never type it into a page, never write it in a reply. ${context} `
+  + 'When the owner says "this page", "that form", "the site", "it" or "do it there", they almost always mean a page shared in this session. Do not say you cannot access their accounts or their browser: use the tools on the page directly. '
+  + 'If no page is shared, ask them to press "Let aixell see this page" in the extension. '
   + 'Work step by step: page_read, then ONE page_act, wait for its result, and read the page again after anything that changes it (forms and web apps redraw; a ref of an element that went away fails with stale_ref). Never send several page_act calls at once. '
   + 'Risky actions (paying, deleting, sending, submitting) make the extension ask the owner; that is expected, wait for the answer. Passwords and card numbers are never typed by you: ask the owner to do that part.';
+
+// What is shared in the chat's session right now, as host names only (a page's title is not trusted text, so it stays out of the instructions).
+async function browserContext(binding) {
+  if (!bridge.status().connected) return 'The browser is not connected at the moment (Chrome closed or the extension signed out).';
+  try {
+    const out = await Promise.race([bridge.call('session_context', {}, { sessionId: binding.sessionRef }, { internal: true }), new Promise((_, reject) => setTimeout(() => reject(new Error('slow')), 2500))]);
+    const hosts = [...new Set((out?.result?.tabs ?? []).map((t) => String(t.host)).filter((h) => /^[a-z0-9.-]{1,80}$/.test(h)))];
+    return hosts.length ? `Pages shared in this session right now: ${hosts.length} (${hosts.join(', ')}).` : 'No page is shared in this session yet.';
+  } catch { return 'The shared pages could not be checked just now; call tabs_list.'; }
+}
 
 const WEB_HINT = 'You are chatting through the web. The web can show images, audio (TTS, music), video and PDFs right in the chat. '
   + 'Whenever you make or find a media file for the user, write its absolute path on a line of its own with the MEDIA: prefix, '
@@ -402,7 +418,14 @@ async function streamChat(req, res, agent) {
   // Visualize is opt-in per chat: the model only learns the openui-lang grammar when the user asked for it, so the
   // ~1.3k tokens of instructions never ride along on a normal turn.
   const visualize = body.visualize === true;
-  payload.system_message = [personality, WEB_HINT, bridge?.status().connected ? BROWSER_HINT : null, visualize ? OPENUI_PROMPT : null, body.spoken === true ? VOICE_HINT : null].filter(Boolean).join('\n\n');
+  let browserPart = null;
+  if (bridge?.enabled()) {
+    const ext = extSessionOf(req.headers);
+    let binding = bindingOf(agent.name, sessionId);
+    if (!binding && ext) binding = bindChat(agent.name, sessionId, ext); // the first message from the extension ties the chat to its session
+    browserPart = binding ? browserHintBound(binding, await browserContext(binding)) : (bridge.status().connected ? BROWSER_HINT_UNBOUND : null);
+  }
+  payload.system_message = [personality, WEB_HINT, browserPart, visualize ? OPENUI_PROMPT : null, body.spoken === true ? VOICE_HINT : null].filter(Boolean).join('\n\n');
 
   const upstream = await agentFetch(agent, `/api/sessions/${encodeURIComponent(sessionId)}/chat/stream`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), timeoutMs: 3_600_000,
@@ -735,7 +758,10 @@ async function handle(req, res) {
       if (url.pathname === '/api/browser/call' && req.method === 'POST') {
         bridge.authorizeCall(req);
         const body = await readJson(req, 120_000);
-        return sendJson(res, 200, await bridge.call(body.tool, body.args ?? {}));
+        // The chat's own key says which extension session it may use; without a valid key nothing reaches the browser.
+        const chat = chatByKey(body.key);
+        if (!chat) throw new HttpError(403, 'Browser tools only work in a chat started from the aixell extension, with its chat_key. Ask the owner to start a new chat from the extension panel (the + button).', 'no_chat_key');
+        return sendJson(res, 200, await bridge.call(body.tool, body.args ?? {}, { sessionId: chat.sessionRef }));
       }
       const session = currentSession(req);
       if (!session) throw new HttpError(401, 'Authentication required.', 'unauthorized');

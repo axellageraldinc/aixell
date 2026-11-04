@@ -1,5 +1,6 @@
 // Fetch wrapper: same-origin credentials, CSRF header on mutations, redirect to the sign-in page on 401.
 import { t } from './i18n.js';
+import { extensionHeaders } from './ext-context.js';
 
 let csrf = '';
 
@@ -22,7 +23,7 @@ const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 // body: object (sent as JSON), Blob (sent as is) or undefined.
 // redirectOn401 is turned off on the sign-in page, where 401 means wrong credentials.
 export async function fetchRaw(path, { method = 'GET', body, headers = {}, redirectOn401 = true, signal } = {}) {
-  const init = { method, credentials: 'same-origin', headers: { ...headers }, signal };
+  const init = { method, credentials: 'same-origin', headers: { ...extensionHeaders(), ...headers }, signal };
   // No token before sign-in: the header is skipped and the server rejects if needed.
   if (MUTATING.has(method) && csrf) init.headers['X-CSRF-Token'] = csrf;
   if (body instanceof Blob) {
