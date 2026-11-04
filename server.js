@@ -318,6 +318,13 @@ async function sessionPreview(agent, sessionPath, full) {
 }
 
 // This chat is a web page, not a plain terminal: it can show what the agent makes, as long as the reply says where it is.
+// When the owner's browser is connected through the aixell extension, the agent has to know it, and that "this page" means a shared tab.
+const BROWSER_HINT = 'The owner\'s own browser is connected through the aixell browser extension, and you have browser tools (mcp__aixell_browser__*: sessions_list, tabs_list, tabs_read, page_read, page_screenshot, page_act, page_navigate, tab_open, page_dialog, network_*, recording_*, pipeline_*). '
+  + 'When the owner says "this page", "that form", "the site", "it" or "do it there", they almost always mean a page they shared in the extension. Do not say you cannot access their accounts or their browser: call sessions_list or tabs_list and work on the page directly with the tools. '
+  + 'If no tab is shared, ask them to press "Let aixell see this page" in the extension. If there are several sessions, name the session in every call. '
+  + 'Work step by step: page_read, then ONE page_act, wait for its result, and read the page again after anything that changes it (forms and web apps redraw; a ref of an element that went away fails with stale_ref). Never send several page_act calls at once. '
+  + 'Risky actions (paying, deleting, sending, submitting) make the extension ask the owner; that is expected, wait for the answer. Passwords and card numbers are never typed by you: ask the owner to do that part.';
+
 const WEB_HINT = 'You are chatting through the web. The web can show images, audio (TTS, music), video and PDFs right in the chat. '
   + 'Whenever you make or find a media file for the user, write its absolute path on a line of its own with the MEDIA: prefix, '
   + 'for example: MEDIA:/home/user/.hermes/profiles/agent/audio_out/voice.mp3 . Never say audio or video cannot be shown, '
@@ -395,7 +402,7 @@ async function streamChat(req, res, agent) {
   // Visualize is opt-in per chat: the model only learns the openui-lang grammar when the user asked for it, so the
   // ~1.3k tokens of instructions never ride along on a normal turn.
   const visualize = body.visualize === true;
-  payload.system_message = [personality, WEB_HINT, visualize ? OPENUI_PROMPT : null, body.spoken === true ? VOICE_HINT : null].filter(Boolean).join('\n\n');
+  payload.system_message = [personality, WEB_HINT, bridge?.status().connected ? BROWSER_HINT : null, visualize ? OPENUI_PROMPT : null, body.spoken === true ? VOICE_HINT : null].filter(Boolean).join('\n\n');
 
   const upstream = await agentFetch(agent, `/api/sessions/${encodeURIComponent(sessionId)}/chat/stream`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), timeoutMs: 3_600_000,

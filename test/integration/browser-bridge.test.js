@@ -3,7 +3,7 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import { boot } from '../helpers/boot.js';
+import { boot, AGENT_NAME } from '../helpers/boot.js';
 
 const EXT = 'abcdefghijklmnopabcdefghijklmnop';
 const ORIGIN = `chrome-extension://${EXT}`;
@@ -111,4 +111,21 @@ test('only the configured extension may frame the app; with no extension configu
   assert.equal(framed.headers.get('x-frame-options'), null);
   const client = await on.login();
   assert.deepEqual((await client.get('/api/browser/status')).data.extensionOrigins, [ORIGIN]);
+});
+
+test('the agent is told about the connected browser, and that "this page" means a shared tab; not told when it is not connected', async () => {
+  const client = await on.login();
+  const chat = `/api/agents/${AGENT_NAME}/chat`;
+  await (await client.raw('POST', chat, { json: { text: 'hello' } })).text();
+  assert.doesNotMatch(on.fake.chatBodies.at(-1).body.system_message, /browser extension/, 'no browser connected: no hint');
+  const stream = await client.raw('GET', '/api/browser/events', EXT_HEADERS);
+  const sse = events(stream);
+  assert.equal((await sse.next()).name, 'hello');
+  await (await client.raw('POST', chat, { json: { text: 'hello again' } })).text();
+  const system = on.fake.chatBodies.at(-1).body.system_message;
+  assert.match(system, /browser extension/);
+  assert.match(system, /"this page"/);
+  assert.match(system, /Do not say you cannot access/);
+  assert.match(system, /Never send several page_act calls at once/);
+  sse.close();
 });
