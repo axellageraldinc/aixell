@@ -66,11 +66,11 @@ const parserFor = (n, lim, clean = plain) => (text) => {
   });
 };
 
-// One model call with one retry. The call and the parsing are kept apart (chatChain would hide a bad answer behind "no paid
+// One model call with up to two retries (a routed gateway may hand each try to a different model, so a retry is a fresh draw). The call and the parsing are kept apart (chatChain would hide a bad answer behind "no paid
 // writer"), so the log says which of the two went wrong.
 async function askModel(agent, opts, parse) {
   let last = null;
-  for (let attempt = 1; attempt <= 2; attempt += 1) {
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
     let raw;
     try { raw = await chatChain(agent, opts, (text) => text); } catch (err) { last = err; console.warn(`[story] model call failed (try ${attempt}): ${err.message}`); continue; }
     try { return parse(raw); } catch (err) { last = err; console.warn(`[story] unusable answer (try ${attempt}, ${String(raw).length} chars): ${err.message}`); }

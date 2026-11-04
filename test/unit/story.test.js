@@ -60,6 +60,19 @@ test('the model may rewrite only the side that was asked for: the other side is 
   assert.deepEqual(onlyPrompt.turns, [{ prompt: 'CHANGED prompt', reply: 'the ai reply' }]);
 });
 
+test('two empty answers in a row are retried: the third try can still succeed', async () => {
+  const good = JSON.stringify({ turns: [{ prompt: 'p2', reply: 'r2' }] });
+  compat.setProviderConfig({
+    providers: { fake: { type: 'openai-compatible', baseUrl: 'http://fake.invalid/v1', apiKey: 'inline-test-key' } },
+    capabilities: { writer: { provider: 'fake', chain: [{ model: 'm', paid: true }] } },
+  });
+  let calls = 0;
+  compat.setTransport?.(async () => new Response(JSON.stringify({ choices: [{ message: { content: ++calls < 3 ? '' : good } }] }), { status: 200, headers: { 'content-type': 'application/json' } }));
+  const out = await storyText(agent, { turns: [{ prompt: 'a', reply: 'b' }], instruction: 'x' });
+  assert.equal(calls, 3);
+  assert.deepEqual(out.turns, [{ prompt: 'p2', reply: 'r2' }]);
+});
+
 test('formatting markers written on the story survive an edit, but are stripped from chat text', async () => {
   const { plain, keep } = await import('../../src/story.js');
   assert.equal(plain('a **b** __c__ ~~d~~ *e* `f`'), 'a b c d e f');
