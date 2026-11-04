@@ -68,8 +68,8 @@ async function watchTitle(sessionId) {
   }
 }
 
-// Chats are listed by when they were created, so an old chat does not jump to the top each time it gets a reply.
-const createdAt = (s) => s.started_at ?? s.last_active ?? 0;
+// Chats are listed by their last activity, so a chat that just got a reply moves to the top.
+const activeAt = (s) => s.last_active ?? s.started_at ?? 0;
 
 function groupLabel(epochSec, startOfToday) {
   const at = epochSec * 1000;
@@ -83,7 +83,7 @@ function render() {
   const query = searchEl.value.trim().toLowerCase();
   const visible = state.sessions
     .filter((s) => !query || sessionTitle(s).toLowerCase().includes(query))
-    .sort((a, b) => createdAt(b) - createdAt(a));
+    .sort((a, b) => activeAt(b) - activeAt(a));
   if (state.sessions.length === 0) {
     listEl.replaceChildren(statusBlock({ kind: 'empty', text: t('sessions.empty') }));
     return;
@@ -100,7 +100,7 @@ function render() {
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
   const groups = new Map();
   for (const s of visible) {
-    const label = groupLabel(createdAt(s), startOfToday);
+    const label = groupLabel(activeAt(s), startOfToday);
     if (!groups.has(label)) groups.set(label, []);
     groups.get(label).push(sessionRow(s, s.id === state.sessionId, { onOpen, onRename: rename, onDelete: remove }));
   }
