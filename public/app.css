@@ -506,7 +506,7 @@ body { font-size: 14px; line-height: 1.5; letter-spacing: 0; }
 .banner { background: var(--bgColor-muted); border-bottom-color: var(--hairline); }
 
 /* Thread */
-.message-list { padding: 24px 16px 16px; }
+.message-list { padding: 24px 16px 36px; }
 .user-body { padding: 8px 16px; border-radius: 16px; background: var(--user-bubble); font-size: 15px; line-height: 1.5; }
 .msg-user { max-width: min(80%, 640px); }
 .msg-assistant { font-size: 15px; line-height: 1.7; }
@@ -1252,7 +1252,7 @@ a.att-file:hover { border-color: color-mix(in oklab, var(--color-primary) 45%, t
 .markdown-body.md td:first-child, .markdown-body.md th:first-child { max-width: 12rem; overflow-wrap: anywhere; }
 .markdown-body.md tbody tr:hover td { background: var(--bgColor-muted); }
 .table-wrap { overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; }
-.markdown-body.md td:first-child, .markdown-body.md th:first-child { max-width: 9.5rem; }
+.markdown-body.md td:first-child, .markdown-body.md th:first-child { width: 9.5rem; min-width: 9.5rem; max-width: 9.5rem; white-space: normal; overflow-wrap: break-word; box-sizing: border-box; }
 
 /* The draft's preview and the box itself never take more than a third of the visible height */
 .md-preview { max-height: calc(var(--app-h, 100dvh) * 0.28); }
