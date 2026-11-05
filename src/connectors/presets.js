@@ -32,6 +32,11 @@ export const DEFAULT_CONNECTOR_PRESETS = [
   { id: 'wccftech', type: 'rss', cat: 'pcbuild', limit: 8, config: { url: 'https://wccftech.com/feed/' }, name: 'Wccftech' },
   { id: 'gamersnexus', type: 'youtube', cat: 'pcbuild', limit: 5, config: { url: 'https://www.youtube.com/feeds/videos.xml?channel_id=UChIs72whgZI9w6d6FhwGGHA' }, name: 'Gamers Nexus' },
   { id: 'hwunboxed', type: 'youtube', cat: 'pcbuild', limit: 5, config: { url: 'https://www.youtube.com/feeds/videos.xml?channel_id=UCI8iQa1hv7oV_Z8D35vVuSg' }, name: 'Hardware Unboxed' },
+  { id: 'ibmtech', type: 'youtube', cat: 'ai', limit: 5, config: { url: 'https://www.youtube.com/feeds/videos.xml?channel_id=UCKWaEZ-_VweaEx1j62do_vQ' }, name: 'IBM Technology' },
+  { id: 'aiengineer', type: 'youtube', cat: 'ai', limit: 5, config: { url: 'https://www.youtube.com/feeds/videos.xml?channel_id=UCLKPca3kwwd-B59HNr-_lvA' }, name: 'AI Engineer' },
+  { id: 'openai-yt', type: 'youtube', cat: 'ai', limit: 5, config: { url: 'https://www.youtube.com/feeds/videos.xml?channel_id=UCXZCJLdBC09xxGZ6gcdrc6A' }, name: 'OpenAI' },
+  { id: 'anthropic-yt', type: 'youtube', cat: 'ai', limit: 5, config: { url: 'https://www.youtube.com/feeds/videos.xml?channel_id=UCrDwWp7EBBv4NwvScIpBDOA' }, name: 'Anthropic' },
+  { id: 'ltt', type: 'youtube', cat: 'pcbuild', limit: 5, config: { url: 'https://www.youtube.com/feeds/videos.xml?channel_id=UCXuqSBlHAE6Xw-yeJA0Tunw' }, name: 'Linus Tech Tips' },
   // AI
   { id: 'hn', type: 'hn', cat: 'ai', limit: 30, config: { url: 'https://hacker-news.firebaseio.com/v0/topstories.json' }, name: 'Hacker News' },
   { id: 'simonwillison', type: 'rss', cat: 'ai', limit: 10, config: { url: 'https://simonwillison.net/atom/everything/' }, name: 'Simon Willison' },

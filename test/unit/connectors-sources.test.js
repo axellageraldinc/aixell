@@ -37,7 +37,7 @@ test('sourcesView: no credential value (or reference) is ever in the view', () =
 
 test('sourcesView: with no connectors configured the preset list is unchanged apart from type', () => {
   // The module already read the config at import, so this checks the preset equivalence directly.
-  assert.equal(DEFAULT_SOURCES.length, 39);
+  assert.equal(DEFAULT_SOURCES.length, 44);
   assert.ok(DEFAULT_SOURCES.every((s) => s.id && s.name && s.cat && s.url));
 });
 

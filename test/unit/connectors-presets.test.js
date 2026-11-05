@@ -15,17 +15,17 @@ const ACCOUNT = [
   { id: 'steam', type: 'steam' },
 ];
 
-test('presets: the 39 feed sources plus the four account-bound ones', () => {
-  assert.equal(DEFAULT_SOURCES.length, 39);
+test('presets: the 44 feed sources plus the four account-bound ones', () => {
+  assert.equal(DEFAULT_SOURCES.length, 44);
   assert.equal(DEFAULT_CONNECTOR_PRESETS.length, DEFAULT_SOURCES.length + ACCOUNT.length);
   assert.deepEqual(DEFAULT_CONNECTOR_PRESETS.slice(-4).map((p) => ({ id: p.id, type: p.type })), ACCOUNT);
 });
 
-test('presets: 43 sources in total, the four account-bound ones included as instances', () => {
-  // The old list of 43 was DEFAULT_SOURCES (39 feeds) plus VIRTUAL_SOURCES (4). The four are
+test('presets: 48 sources in total, the four account-bound ones included as instances', () => {
+  // The old list of 48 was DEFAULT_SOURCES (44 feeds) plus VIRTUAL_SOURCES (4). The four are
   // connector instances now, with the same legacy ids, and the Settings panel still groups them.
-  assert.equal(DEFAULT_CONNECTOR_PRESETS.length, 43);
-  assert.equal(DEFAULT_SOURCES.length + ACCOUNT.length, 43);
+  assert.equal(DEFAULT_CONNECTOR_PRESETS.length, 48);
+  assert.equal(DEFAULT_SOURCES.length + ACCOUNT.length, 48);
 });
 
 test('presets: ids are unique', () => {
