@@ -129,36 +129,7 @@ export function initFeed() {
     user.classList.toggle('is-open');
   });
 
-  // Soft page snapping, done by hand. A page that fits the screen settles on whichever page start is nearer, like turning a page.
-  // A page taller than the screen scrolls freely; it only settles when a page start is within reach (so a long answer can be read).
-  const NEAR_PX = 56;
-  let touching = false;
-  function settle() {
-    if (touching || root.hasAttribute('data-feed-live')) return;
-    const selection = getSelection();
-    if (selection && !selection.isCollapsed) return;
-    const all = pages();
-    if (all.length < 2) return;
-    const top = thread.scrollTop;
-    const height = thread.clientHeight;
-    if (thread.scrollHeight - top - height < 8) return;
-    const tops = all.map(topOf);
-    let i = 0;
-    tops.forEach((y, k) => { if (y <= top + 1) i = k; });
-    const start = tops[i];
-    const next = tops[i + 1] ?? Infinity;
-    let target = null;
-    if (next - start <= height * 1.12) target = top - start < next - top ? start : next;
-    else if (top - start < NEAR_PX) target = start;
-    else if (next - top < NEAR_PX) target = next;
-    if (target != null && Number.isFinite(target) && Math.abs(target - top) > 1) thread.scrollTo({ top: target, behavior: reducedMotion() ? 'auto' : 'smooth' });
-  }
-  let settleTimer = 0;
-  const later = () => { clearTimeout(settleTimer); settleTimer = setTimeout(settle, 170); };
-  if ('onscrollend' in window) thread.addEventListener('scrollend', settle); else thread.addEventListener('scroll', later, { passive: true });
-  thread.addEventListener('touchstart', () => { touching = true; }, { passive: true });
-  thread.addEventListener('touchend', () => { touching = false; later(); }, { passive: true });
-  thread.addEventListener('touchcancel', () => { touching = false; }, { passive: true });
+  // No snapping: scrolling is the browser's natural scroll (a page used to settle onto the nearest question, which felt sticky).
 
   // A chat opens on the start of its last page (its question and the top of the reply), not on the very bottom, where the
   // top of that page would be cut off.
