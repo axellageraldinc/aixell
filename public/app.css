@@ -1345,3 +1345,4 @@ body { overflow-x: clip; max-width: 100%; }
   .main.is-new .hero-logo, .main.is-new .hero-sub, .main.is-new .new-extras { display: none; }
   .main.is-new .hero h2 { font-size: 22px; }
 }
+.thread, .session-list { overflow-x: hidden; }
