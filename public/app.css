@@ -1332,3 +1332,16 @@ select.select option:checked { background: var(--bgColor-accent-muted); }
 .share-field .dlg-row { margin: 0; }
 /* Header cells are capped in width (24rem): a long title must wrap inside its cell instead of spilling over the next one */
 .markdown-body.md th { white-space: normal; }
+
+/* The shell never pans sideways (the PWA could be scrolled into empty space to the right). */
+html { overflow-x: hidden; overscroll-behavior-x: none; max-width: 100%; }
+body { overflow-x: clip; max-width: 100%; }
+.app { overflow: clip; max-width: 100%; }
+
+/* New chat with the on-screen keyboard open: the centred hero + composer no longer fit, so they used to spill upward under the
+   top bar. Centre only when there is room ("safe"), keep clear of the bar, scroll otherwise, and drop the decorative bits. */
+.main.is-new { justify-content: safe center; padding-top: 48px; box-sizing: border-box; overflow-y: auto; }
+@media (max-height: 560px) {
+  .main.is-new .hero-logo, .main.is-new .hero-sub, .main.is-new .new-extras { display: none; }
+  .main.is-new .hero h2 { font-size: 22px; }
+}

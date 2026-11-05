@@ -78,3 +78,14 @@ function initSwipe() {
     else if (dx < 0 && isOpen()) setOpen(false);
   }, { passive: true });
 }
+
+// The shell never scrolls sideways. `overflow: hidden` still allows programmatic scrolling (input focus,
+// scrollIntoView, text selection drags), which can leave the PWA panned into empty space; snap it back.
+function pinHorizontalScroll() {
+  for (const el of [document.scrollingElement, document.body, $('.app')]) {
+    if (el && el.scrollLeft !== 0) el.scrollLeft = 0;
+  }
+}
+for (const target of [window, document.body, $('.app')]) {
+  target?.addEventListener('scroll', pinHorizontalScroll, { passive: true });
+}
