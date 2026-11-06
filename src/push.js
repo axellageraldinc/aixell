@@ -112,6 +112,14 @@ export async function notifyRunDone({ agentName, sessionId, title, seconds }) {
   return targets.length;
 }
 
+// A follow-up is waiting in a chat. The text names nothing: a lock screen must not show what the check-in is about.
+export async function notifyFollowup({ agentName, sessionId }) {
+  if (!subs.length) return 0;
+  remember({ heading: APP_NAME, body: 'New message', url: `/#/${agentName}/${sessionId}`, tag: 'aixell-followup', at: Date.now() });
+  await Promise.all(subs.map(send));
+  return subs.length;
+}
+
 export async function sendTest(endpoint) {
   const sub = subs.find((s) => s.endpoint === endpoint);
   if (!sub) throw new HttpError(404, 'This device is not subscribed.', 'not_subscribed');

@@ -14,6 +14,11 @@
   "push": {
     "subject": "mailto:admin@example.invalid"
   },
+  "followups": {
+    "enabled": false,
+    "quietHours": "22:00-08:00",
+    "maxPerDay": 1
+  },
   "allowInlineSecrets": false,
   "providers": {
     "example": {

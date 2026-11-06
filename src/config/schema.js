@@ -22,9 +22,11 @@ export const OPAQUE_KEYS = [
   'telegramImport',
 ];
 
-const KNOWN_KEYS = ['appName', 'server', 'agents', 'hermesRoot', 'timezone', 'push', 'allowInlineSecrets', 'connectors', 'connectorsDir', 'fresh'];
+const KNOWN_KEYS = ['appName', 'server', 'agents', 'hermesRoot', 'timezone', 'push', 'followups', 'allowInlineSecrets', 'connectors', 'connectorsDir', 'fresh'];
 const SERVER_KEYS = ['port', 'hosts', 'allowedHosts', 'browserExtensionIds', 'trustCloudflare', 'cookieSecure', 'sessionDays', 'sessionMaxAgeDays', 'orphanStopMinutes'];
 const PUSH_KEYS = ['subject'];
+const FOLLOWUP_KEYS = ['enabled', 'quietHours', 'maxPerDay'];
+const QUIET_HOURS = /^([01]\d|2[0-3]):[0-5]\d-([01]\d|2[0-3]):[0-5]\d$/;
 const CONNECTOR_KEYS = ['id', 'type', 'enabled', 'cat', 'limit', 'config', 'credentials', 'schedule', 'name', 'stack'];
 const FRESH_KEYS = ['content', 'categories', 'taste', 'filters', 'writer'];
 const CONTENT_KEYS = ['language', 'languageCode', 'locale', 'keepLanguages'];
@@ -282,6 +284,31 @@ export function validate(input) {
         else errors.push('push.subject: must be a non-empty string');
       }
       value.push = out;
+    }
+  }
+
+  if (input.followups !== undefined) {
+    if (!isPlainObject(input.followups)) {
+      errors.push('followups: must be an object');
+    } else {
+      const out = {};
+      for (const key of Object.keys(input.followups)) {
+        if (!FOLLOWUP_KEYS.includes(key)) warnings.push(`followups.${key}: unknown key (ignored)`);
+      }
+      if (input.followups.enabled !== undefined) {
+        if (typeof input.followups.enabled === 'boolean') out.enabled = input.followups.enabled;
+        else errors.push('followups.enabled: must be a boolean');
+      }
+      if (input.followups.quietHours !== undefined) {
+        if (input.followups.quietHours === null || input.followups.quietHours === '') out.quietHours = '';
+        else if (typeof input.followups.quietHours === 'string' && QUIET_HOURS.test(input.followups.quietHours)) out.quietHours = input.followups.quietHours;
+        else errors.push('followups.quietHours: must be "HH:MM-HH:MM" (local time) or empty');
+      }
+      if (input.followups.maxPerDay !== undefined) {
+        if (Number.isInteger(input.followups.maxPerDay) && input.followups.maxPerDay >= 1 && input.followups.maxPerDay <= 10) out.maxPerDay = input.followups.maxPerDay;
+        else errors.push('followups.maxPerDay: must be an integer from 1 to 10');
+      }
+      value.followups = out;
     }
   }
 

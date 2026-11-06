@@ -6,6 +6,7 @@ import net from 'node:net';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { config, EFFORT_LEVELS, SERVICE_TIERS } from './src/config.js';
+import { settings } from './src/config/instance.js';
 import { HttpError, SECURITY_HEADERS, allowFramingBy, parseCookies, readBody, readJson, requireId, sendError, sendJson } from './src/http.js';
 import { createAuthenticator, readAuthRecord } from './src/auth.js';
 import { createSessionStore, sessionFile } from './src/web-sessions.js';
@@ -25,7 +26,7 @@ import { synthesizeSpeech } from './src/speech.js';
 import { storyText } from './src/story.js';
 import { loadFillers } from './src/voice-fillers.js';
 import { rewindLastTurn } from './src/rewind.js';
-import { publicKey as pushKey, saveSubscription, removeSubscription, hasSubscription, lastFinished, notifyRunDone, sendTest } from './src/push.js';
+import { publicKey as pushKey, saveSubscription, removeSubscription, hasSubscription, lastFinished, notifyRunDone, notifyFollowup, sendTest } from './src/push.js';
 import { listFacts, updateFact, removeFact, readNotes, writeNotes, listSkills, readSkill, trashSkill } from './src/knowledge.js';
 import { startRun, findRun, runInfo, publish, attach, endRun, sseFrame } from './src/runs.js';
 import { getSettings, saveSettings, forgetSettings, getContext, saveContext } from './src/session-settings.js';
@@ -39,6 +40,10 @@ import { lastPromptTokens, searchMessages } from './src/state-db.js';
 import { OPENUI_PROMPT } from './src/openui-prompt.js';
 import { freshBootstrap, freshXRun, freshIngest, freshRoute } from './src/fresh/routes.js';
 import { startFresh } from './src/fresh/index.js';
+import { createFollowups, checkinSeed, isCheckin } from './src/followups.js';
+import { FOLLOWUP_TOOL_NAMES } from './src/followup-tools.js';
+import { createScheduler } from './src/scheduler/scheduler.js';
+import { timezone, dayKey, minutesOfDay } from './src/time.js';
 import { providersFor } from './src/providers/compat.js';
 import { buildRegistry } from './src/providers/registry.js';
 
@@ -295,7 +300,7 @@ function trimMessages(page) {
 // does not download dozens of tool messages for it. A chat busy with tools ends in many messages without words, so the newest
 // reply is looked for in the last 40 messages first and in 250 only when that finds nothing.
 const previews = new Map();
-const textRows = (page) => (page?.data ?? page?.messages ?? []).filter((m) => typeof m.content === 'string' && m.content.trim() && (m.role === 'assistant' || m.role === 'user'));
+const textRows = (page) => (page?.data ?? page?.messages ?? []).filter((m) => typeof m.content === 'string' && m.content.trim() && (m.role === 'assistant' || m.role === 'user') && !isCheckin(m.content));
 async function sessionPreview(agent, sessionPath, full) {
   const key = `${agent.name}|${sessionPath}|${full}`;
   const hit = previews.get(key);
@@ -345,6 +350,27 @@ const WEB_HINT = 'You are chatting through the web. The web can show images, aud
   + 'Whenever you make or find a media file for the user, write its absolute path on a line of its own with the MEDIA: prefix, '
   + 'for example: MEDIA:/home/user/.hermes/profiles/agent/audio_out/voice.mp3 . Never say audio or video cannot be shown, '
   + 'and never write a bare path. Keep the file in the agent profile folder (or /tmp) so it can be shown.';
+
+// Follow-ups: the agent may promise to check in later, in the same chat. The server delivers the check-in (src/followups.js).
+const followups = createFollowups({
+  dataDir: config.dataDir,
+  settings: () => settings.followups,
+  localMinutes: minutesOfDay,
+  dayOf: dayKey,
+  isBusy: (agentName, sessionId) => Boolean(findRun(agentName, sessionId)),
+  deliver: (item) => deliverCheckin(item),
+  ...(process.env.NODE_ENV === 'test' ? { minAheadMs: 0 } : {}), // test seam: tests cannot wait a minute
+});
+const followupHint = (agentName, sessionId) => {
+  const when = new Date();
+  const local = new Intl.DateTimeFormat('en-GB', { timeZone: timezone(), dateStyle: 'full', timeStyle: 'short' }).format(when);
+  return 'You can follow up with the owner later, in this same chat, through the tools mcp__aixell_followups__*: schedule_followup, list_followups, cancel_followup. '
+    + `Every call must include chat_key: ${followups.keyFor(agentName, sessionId)}  Keep that key secret: never write it in a reply. `
+    + `Now it is ${local} (${timezone()}), ${when.toISOString()} UTC. `
+    + 'Use schedule_followup when the owner tells you something that is likely to change or need news soon: a decision they are about to act on, something they are going through, a plan with a date. '
+    + 'Choose the time that fits the topic and a reasonable hour for them. Always tell the owner in your reply that you will check in and roughly when, so they can say it is not needed; if they do, call cancel_followup and confirm. '
+    + 'Be sparing: do not schedule follow-ups for small talk or for things they did not share. They arrive as a message from you in this chat, so write them as one. If you cannot see these tools, do not mention follow-ups.';
+};
 
 // Added to a turn that comes from the voice chat: the answer is read aloud, so it has to work as speech.
 const VOICE_HINT = 'This turn is a spoken conversation and your answer will be read aloud. Reply in the user\'s language, in short, natural, '
@@ -425,7 +451,8 @@ async function streamChat(req, res, agent) {
     if (!binding && ext) binding = bindChat(agent.name, sessionId, ext); // the first message from the extension ties the chat to its session
     browserPart = binding ? browserHintBound(binding, await browserContext(binding)) : (bridge.status().connected ? BROWSER_HINT_UNBOUND : null);
   }
-  payload.system_message = [personality, WEB_HINT, browserPart, visualize ? OPENUI_PROMPT : null, body.spoken === true ? VOICE_HINT : null].filter(Boolean).join('\n\n');
+  if (followups.enabled()) followups.noteUserTurn(agent.name, sessionId);
+  payload.system_message = [personality, WEB_HINT, followups.enabled() ? followupHint(agent.name, sessionId) : null, browserPart, visualize ? OPENUI_PROMPT : null, body.spoken === true ? VOICE_HINT : null].filter(Boolean).join('\n\n');
 
   const upstream = await agentFetch(agent, `/api/sessions/${encodeURIComponent(sessionId)}/chat/stream`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), timeoutMs: 3_600_000,
@@ -450,7 +477,7 @@ async function streamChat(req, res, agent) {
 
 const SSE_HEADERS = { ...SECURITY_HEADERS, 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-store', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' };
 
-async function pump(run, upstream, agent, sessionId, callsBefore) {
+async function pump(run, upstream, agent, sessionId, callsBefore, announce = true) {
   try {
     for await (const chunk of upstream.body) publish(run, chunk);
   } catch (error) {
@@ -459,7 +486,7 @@ async function pump(run, upstream, agent, sessionId, callsBefore) {
   endRun(run);
   // A reply that finished on its own: tell the devices that asked to hear about long ones (the service worker stays
   // silent when the app is open in front of you).
-  if (run.usageInput != null) announceDone(agent, sessionId, run).catch(() => {});
+  if (announce && run.usageInput != null) announceDone(agent, sessionId, run).catch(() => {});
   // The run reports prompt tokens summed over all its model calls; dividing by the calls it made gives the
   // typical prompt size (exact when it made one call). Stored so the context meter survives a reload.
   if (run.usageInput) {
@@ -475,6 +502,27 @@ async function announceDone(agent, sessionId, run) {
   let title = '';
   try { title = (await webSession(agent, sessionId)).title || ''; } catch { /* a generic body is fine */ }
   await notifyRunDone({ agentName: agent.name, sessionId, title, seconds: (Date.now() - run.startedAt) / 1000 });
+}
+
+// A due follow-up: a hidden turn in the chat it belongs to. The agent writes the check-in, which then waits in the chat; the
+// devices get a push that names nothing. The turn uses the model the chat last used.
+async function deliverCheckin(item) {
+  const agent = getAgent(item.agent);
+  if (findRun(agent.name, item.sessionId)) throw new Error('the chat is busy');
+  const callsBefore = (await webSession(agent, item.sessionId)).api_call_count || 0;
+  const saved = getSettings(agent.name, item.sessionId) ?? {};
+  const payload = { input: checkinSeed(item), system_message: [getPersonality(agent.name), WEB_HINT, followupHint(agent.name, item.sessionId)].filter(Boolean).join('\n\n') };
+  for (const key of ['model', 'provider']) if (typeof saved[key] === 'string' && MODEL_RE.test(saved[key])) payload[key] = saved[key];
+  const options = {};
+  if (EFFORT_LEVELS.includes(saved.reasoningEffort)) options.reasoning_effort = saved.reasoningEffort;
+  if (SERVICE_TIERS.includes(saved.serviceTier) && saved.serviceTier !== 'default') options.service_tier = saved.serviceTier;
+  if (Object.keys(options).length) payload.model_options = options;
+  const upstream = await agentFetch(agent, `/api/sessions/${encodeURIComponent(item.sessionId)}/chat/stream`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), timeoutMs: 3_600_000 });
+  if (!upstream.ok) throw new Error(`the agent answered ${upstream.status}`);
+  const run = startRun(agent.name, item.sessionId, Date.now());
+  await pump(run, upstream, agent, item.sessionId, callsBefore, false);
+  if (run.usageInput == null) throw new Error('no reply came back');
+  await notifyFollowup({ agentName: agent.name, sessionId: item.sessionId });
 }
 
 async function apiRoute(req, res, url, session) {
@@ -763,6 +811,17 @@ async function handle(req, res) {
         if (!chat) throw new HttpError(403, 'Browser tools only work in a chat started from the aixell extension, with its chat_key. Ask the owner to start a new chat from the extension panel (the + button).', 'no_chat_key');
         return sendJson(res, 200, await bridge.call(body.tool, body.args ?? {}, { sessionId: chat.sessionRef }));
       }
+      // The agent's side of follow-ups: loopback only (not through the tunnel), the shared secret, and the chat's own key.
+      if (url.pathname === '/api/followups/call' && req.method === 'POST') {
+        const addr = req.socket.remoteAddress;
+        const local = addr === '127.0.0.1' || addr === '::1' || addr === '::ffff:127.0.0.1';
+        const proxied = req.headers['cf-connecting-ip'] || req.headers['cf-ray'] || req.headers['x-forwarded-for'] || req.headers.forwarded;
+        if (!followups.enabled() || !local || proxied) throw new HttpError(404, 'Not found.', 'not_found');
+        if (!followups.authorizeToken(req.headers.authorization)) throw new HttpError(401, 'Invalid token.', 'unauthorized');
+        const body = await readJson(req, 20_000);
+        if (!FOLLOWUP_TOOL_NAMES.has(body.tool)) throw new HttpError(400, 'Unknown tool.', 'unknown_tool');
+        return sendJson(res, 200, { result: followups.call(body.tool, body.args ?? {}, body.key) });
+      }
       const session = currentSession(req);
       if (!session) throw new HttpError(401, 'Authentication required.', 'unauthorized');
       renewCookie(req, res, session);
@@ -829,9 +888,15 @@ export async function start(options = {}) {
   const ports = await Promise.all(hosts.map((host) => new Promise((resolve) => listen(host, wanted, (_server, bound) => resolve(bound)))));
   const runFresh = options.fresh ?? process.env.HERMES_WEB_FRESH_OFF !== '1';
   if (runFresh) try { startFresh(getAgent(config.agentNames[0])); } catch (err) { console.warn(`[hermes-web] Fresh feed not started: ${err.message}`); }
+  const followupJobs = createScheduler({ timezone });
+  if (followups.enabled() && options.followups !== false) {
+    followups.secretValue(); // created now, so the MCP server can read it before the first call
+    followupJobs.add({ id: 'followups:tick', schedule: { every: process.env.NODE_ENV === 'test' && process.env.HERMES_WEB_TEST_FOLLOWUP_TICK ? process.env.HERMES_WEB_TEST_FOLLOWUP_TICK : '2m' }, timeoutMs: 600_000, overlap: 'skip', run: () => followups.tick() });
+    followupJobs.start();
+  }
   return {
     servers: [...servers], port: ports[0],
-    close: () => { bridge?.close(); return Promise.all(servers.splice(0).map((server) => new Promise((resolve) => { server.close(resolve); server.closeAllConnections?.(); }))); },
+    close: () => { followupJobs.stop(); bridge?.close(); return Promise.all(servers.splice(0).map((server) => new Promise((resolve) => { server.close(resolve); server.closeAllConnections?.(); }))); },
   };
 }
 

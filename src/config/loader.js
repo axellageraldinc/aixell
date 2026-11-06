@@ -33,6 +33,7 @@ export const defaults = () => ({
   timezone: 'UTC',
   fresh: {},
   push: { subject: 'mailto:admin@example.invalid' },
+  followups: { enabled: false, quietHours: '22:00-08:00', maxPerDay: 1 },
   allowInlineSecrets: false,
 });
 
@@ -109,6 +110,7 @@ export function mergeConfig(base, file) {
   const merged = { ...base, ...file };
   merged.server = { ...base.server, ...(file.server ?? {}) };
   merged.push = { ...base.push, ...(file.push ?? {}) };
+  merged.followups = { ...base.followups, ...(file.followups ?? {}) };
   return merged;
 }
 
@@ -121,7 +123,7 @@ const envValue = (env, name) => {
 // before, including the difference between an unset variable (use the file/default) and an
 // empty one (the old code produced an empty list).
 export function applyEnv(merged, env = process.env) {
-  const out = { ...merged, server: { ...merged.server }, push: { ...merged.push } };
+  const out = { ...merged, server: { ...merged.server }, push: { ...merged.push }, followups: { ...merged.followups } };
   if (envValue(env, 'HERMES_WEB_PORT') !== null) out.server.port = Number(env.HERMES_WEB_PORT);
   if (env.HERMES_WEB_HOSTS !== undefined) out.server.hosts = list(env.HERMES_WEB_HOSTS, '');
   if (env.HERMES_WEB_ALLOWED_HOSTS !== undefined) out.server.allowedHosts = list(env.HERMES_WEB_ALLOWED_HOSTS, '');

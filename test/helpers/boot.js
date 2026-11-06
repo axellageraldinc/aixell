@@ -4,6 +4,7 @@
 //   const app = await boot({ inProcess: true });    // imports server.js and calls start(); one app per test process
 //   const app = await boot({ files: { 'providers.json': '{"providers":{},"capabilities":{}}' } });  // extra files in data/
 //   const me = await app.login();                   // a signed-in client: me.get/post/put/patch/delete(path, body)
+//   const app = await boot({ config: { followups: { enabled: true } } });   // contents of the config file the app reads
 //   await app.stop();
 //
 // In-process mode sets the environment before server.js (and so src/config.js) is imported, which happens once per process.
@@ -58,7 +59,7 @@ function makeClient(base) {
 }
 
 export async function boot(options = {}) {
-  const { inProcess = false, seed = false, env = {}, fake: fakeOptions = {}, publicDir, files = {} } = options;
+  const { inProcess = false, seed = false, env = {}, fake: fakeOptions = {}, publicDir, files = {}, config = {} } = options;
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'hermes-web-test-'));
   const dataDir = path.join(dir, 'data');
   const hermesRoot = path.join(dir, 'hermes');
@@ -88,7 +89,7 @@ export async function boot(options = {}) {
     HERMES_WEB_CONFIG: path.join(dir, 'config.json'),
     HERMES_WEB_FRESH_OFF: '1', HERMES_WEB_FRESH_OFFLINE: '1', ...(publicDir ? { HERMES_WEB_PUBLIC_DIR: publicDir } : {}), ...env,
   };
-  fs.writeFileSync(appEnv.HERMES_WEB_CONFIG, '{}\n');
+  fs.writeFileSync(appEnv.HERMES_WEB_CONFIG, `${JSON.stringify(config)}\n`);
 
   let port, stopApp, logText = () => '', exited = () => false;
   if (inProcess) {

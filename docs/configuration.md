@@ -43,6 +43,9 @@ only warn and are ignored.
 | `hermesRoot` | string | `~/.hermes` | Hermes home; profiles are read from `<hermesRoot>/profiles`. A `~` in a configured value is used literally, so write the absolute path. |
 | `timezone` | string | `UTC` | Reporting timezone (IANA name). |
 | `push.subject` | string | `mailto:admin@example.invalid` | VAPID contact. Use `mailto:` or an `https:` URL you control. |
+| `followups.enabled` | boolean | `false` | Let the agent schedule check-ins in a chat (see [followups.md](followups.md)). |
+| `followups.quietHours` | `"HH:MM-HH:MM"` | `22:00-08:00` | No check-in is sent in this window (local time, `timezone`). Empty string disables it. |
+| `followups.maxPerDay` | integer 1-10 | `1` | Most check-ins sent per day. |
 | `allowInlineSecrets` | boolean | `false` | Accept literal secrets in provider configs instead of refs. Not recommended. |
 | `connectors` | array | `[]` | Feed connector instances; see [connectors.md](connectors.md). Empty means the shipped presets are used. |
 | `connectorsDir` | string | `<dataDir>/connectors` | Where drop-in connector files are read from. |

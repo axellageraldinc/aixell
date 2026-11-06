@@ -5,6 +5,8 @@ import { userNode, assistantNode, systemNode } from './message-nodes.js';
 import { t } from './i18n.js';
 
 // A message slipped into a running reply (steer) is stored as a user row wrapped in these markers.
+// The note that starts an automatic check-in (src/followups.js). It is the agent's cue, not something the owner wrote.
+const CHECKIN_MARK = '[[aixell:checkin]]';
 const STEER = /^\s*\[OUT-OF-BAND USER MESSAGE[^\]]*\]\s*([\s\S]*?)\s*\[\/OUT-OF-BAND USER MESSAGE\]\s*$/;
 
 export function groupTurns(messages) {
@@ -14,7 +16,8 @@ export function groupTurns(messages) {
     if (m.role === 'user') {
       // A steered message is a bubble of its own, between the two halves of the reply it was slipped into.
       const steer = typeof m.content === 'string' ? m.content.match(STEER) : null;
-      turn = { user: steer ? { ...m, content: steer[1] } : m, items: [] };
+      // A check-in note has no bubble: the agent's message that follows it stands alone in the chat.
+      turn = { user: typeof m.content === 'string' && m.content.startsWith(CHECKIN_MARK) ? null : steer ? { ...m, content: steer[1] } : m, items: [] };
       turns.push(turn);
     } else {
       if (!turn) { turn = { user: null, items: [] }; turns.push(turn); }
