@@ -136,9 +136,6 @@ const servedAt = new Map(); // key -> ms of the last read attempt (throttle)
 const servedToken = new Map(); // key -> newest read, so an older answer cannot overwrite it
 const SERVED_MIN_GAP_MS = 4_000;
 
-// True while the chat follows the routed gateway's own choice (no model picked by hand).
-export const autoSelected = () => state.models?.routed === true && (currentSettings().model ?? state.models.current?.model) === state.models.current?.model;
-
 export const servedModelId = () => (state.models?.routed === true ? served.get(sessionKey(state.agent, state.sessionId)) ?? null : null);
 
 // Best effort: a gateway that cannot say (no traffic yet, no such endpoint) leaves the plain route name. `sessionId`

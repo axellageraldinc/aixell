@@ -3,7 +3,7 @@ import { $ } from './dom.js';
 import { state, on } from './state.js';
 import { bindPopover } from './popover.js';
 import { skeletonRows } from './ui.js';
-import { currentSettings, effectiveModelId, loadModels, servedModelId, autoSelected } from './models.js';
+import { currentSettings, effectiveModelId, loadModels, servedModelId } from './models.js';
 
 const PANEL_WIDTH = 380;
 const textEl = $('#model-chip-text');
@@ -19,7 +19,7 @@ function refresh() {
   const model = effectiveModelId();
   const { reasoningEffort: effort, serviceTier } = currentSettings();
   // A routed gateway pins one real model per conversation: name it beside the route ("xellter - agnes-3-0-flash:free").
-  const served = autoSelected() ? servedModelId() : null;
+  const served = servedModelId();
   const shown = model && served && served !== model ? `${model} - ${served}` : model;
   const label = shown ? [shown, effort ? effort : null, serviceTier === 'priority' ? 'priority' : null].filter(Boolean).join(' · ') : null;
   if (label && !state.sessionId) { try { localStorage.setItem(LABEL_KEY, label); } catch { /* shown again next time */ } }

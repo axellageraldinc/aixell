@@ -1,6 +1,6 @@
 // Drives the real UI in headless Chrome against the app booted with a ROUTED catalog provider (like xellter):
-// the composer's model popover must offer "Auto" (the gateway chooses, the default) first, followed by the models it
-// serves, while Visualize stays, and the chip must name the real model the gateway pinned for the open conversation.
+// the composer's model popover must show the routing note instead of a model list, while Visualize stays, and the
+// chip must name the real model the gateway pinned for the open conversation.
 import { describe, test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { boot, totp, TOTP_SECRET, USERNAME, PASSWORD } from '../helpers/boot.js';
@@ -43,7 +43,7 @@ for (const [name, viewport] of Object.entries(VIEWPORTS)) {
       await gw?.close();
     });
 
-    test('the popover offers Auto first as the default, keeps Visualize, and does not scroll sideways', async () => {
+    test('the popover offers no model list, keeps Visualize, and does not scroll sideways', async () => {
       await page.waitFor("document.querySelector('#model-chip')", { what: 'the model chip' });
       // The chip exists before its popover is bound (composer init runs last), so click until it opens.
       await page.waitFor(`(() => {
@@ -57,9 +57,7 @@ for (const [name, viewport] of Object.entries(VIEWPORTS)) {
       const info = await page.ev(`(() => {
         const pop = document.querySelector('#model-popover');
         return {
-          first: pop.querySelector('[data-testid=model-option]')?.dataset.model ?? null,
-          selected: pop.querySelector('[data-testid=model-option][aria-selected=true]')?.dataset.model ?? null,
-          auto: pop.querySelector('[data-testid=model-option] .mo-name')?.textContent ?? '',
+          routed: !!pop.querySelector('[data-testid=model-routed]'),
           options: pop.querySelectorAll('[data-testid=model-option]').length,
           search: !!pop.querySelector('input[type=search]'),
           effort: !!pop.querySelector('[data-testid=effort-option]'),
@@ -69,13 +67,11 @@ for (const [name, viewport] of Object.entries(VIEWPORTS)) {
       })()`);
       if (SHOTS) await page.screenshot(`${SHOTS}/${name}-routed-popover.png`);
 
-      assert.equal(info.first, 'fake-model', 'the gateway route is the first row');
-      assert.equal(info.selected, 'fake-model', 'Auto is the default');
-      assert.match(info.auto, /^Auto/, 'the route is labelled Auto');
-      assert.ok(info.options >= 1, 'the model rows are offered');
-      assert.equal(info.search, true, 'a model search box');
-      assert.equal(info.effort, true, 'effort stays');
-      assert.equal(info.speed, true, 'speed stays');
+      assert.equal(info.routed, true, 'the routing note is shown');
+      assert.equal(info.options, 0, 'no model rows are offered');
+      assert.equal(info.search, false, 'no model search box');
+      assert.equal(info.effort, false, 'effort is gone: the gateway picks the model, not the effort');
+      assert.equal(info.speed, false, 'speed is gone for the same reason');
       assert.equal(info.visualize, true, 'Visualize stays');
       assert.equal(await page.ev('document.documentElement.scrollWidth <= window.innerWidth + 1'), true, 'no sideways scrolling');
       assert.deepEqual(page.problems, [], 'no script errors or failed requests');
@@ -102,7 +98,7 @@ for (const [name, viewport] of Object.entries(VIEWPORTS)) {
       // A phone truncates the chip; the popover still spells the whole name out.
       await page.clickVisible('#model-chip');
       await page.waitFor("document.querySelector('#model-popover').innerText.trim().length > 0", { what: 'popover content' });
-      assert.match(await page.ev("document.querySelector('#model-popover .model-note:last-of-type')?.innerText ?? ''"), new RegExp(SERVED));
+      assert.match(await page.ev("document.querySelector('[data-testid=model-served]')?.innerText ?? ''"), new RegExp(SERVED));
       assert.deepEqual(page.problems, [], 'no script errors or failed requests');
     });
   });

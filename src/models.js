@@ -66,12 +66,15 @@ async function liveModelIds(agent) {
 }
 
 // A configured catalog provider: its own list of models, with its own prices and modalities.
-// A `routed` catalog (a gateway that resolves the real model per request, e.g. xellter) defaults to its own route
-// ("Auto"); the models it serves are listed after it for when one should be pinned.
+// A `routed` catalog (a gateway that resolves the real model per request, e.g. xellter) has nothing to choose from:
+// its /models answer is the set of presets it serves, not chat models, so the picker shows the route instead of a list.
 async function getCatalogModels(agent, catalog, routed = false) {
   const isHidden = hiddenCheck(agent.provider);
   const base = { current: { provider: agent.provider, model: agent.model }, effortLevels: EFFORT_LEVELS, serviceTiers: ['default'] };
-  const listed = (await catalog.listModels({ currentModel: agent.model })).map((m) => ({
+  if (routed) {
+    return { ...base, routed: true, models: [{ id: agent.model, provider: agent.provider, reasoning: false, contextWindow: null, modalities: null, hidden: false, price: null, quota: null, note: null }] };
+  }
+  const models = (await catalog.listModels({ currentModel: agent.model })).map((m) => ({
     id: m.id, provider: agent.provider,
     reasoning: m.reasoning,
     contextWindow: m.contextWindow,
@@ -81,11 +84,7 @@ async function getCatalogModels(agent, catalog, routed = false) {
     quota: m.quota,
     note: m.note,
   }));
-  if (!routed) return { ...base, models: listed };
-  // A routed gateway resolves the real model per request. Its default route comes first as "Auto" (the gateway
-  // chooses, and stays the default); the models it serves follow, so a chat can still pin one.
-  const auto = { id: agent.model, provider: agent.provider, auto: true, reasoning: true, contextWindow: null, modalities: null, hidden: false, price: null, quota: null, note: null };
-  return { ...base, routed: true, models: [auto, ...listed.filter((m) => m.id !== agent.model)] };
+  return { ...base, models };
 }
 
 // A routed gateway can also say which real model a conversation is on (`capabilities.models.servedModelPath`, e.g.
