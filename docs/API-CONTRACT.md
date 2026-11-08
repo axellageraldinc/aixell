@@ -110,8 +110,8 @@ A `role:"tool"` message is shown as a collapsed tool card (name plus truncated o
 A `null` value means unknown: show "-". Never guess numbers.
 
 A **routed** catalogue (`capabilities.models.routed`, a gateway that picks the real model per request) answers
-`{ current, effortLevels:["none"], serviceTiers:["default"], routed:true, models:[{id: current.model, ...}] }`: there is
-nothing to choose, so the picker shows the route instead of a list.
+the same shape plus `routed:true`. Its first entry is the default route with `auto:true` (`id` = `current.model`): the
+gateway chooses, and it stays the default. The models the gateway serves follow, so a chat may pin one.
 
 ### `GET /api/agents/:a/models/served?session=<id>`
 Only a routed gateway that declares `servedModelPath` can answer it: the server asks the gateway which real model that

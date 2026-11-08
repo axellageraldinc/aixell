@@ -9,7 +9,7 @@ import { segmented } from './segmented.js';
 import { bindListNav } from './popover.js';
 import { api, agentPath } from './api.js';
 import { notify } from './ui.js';
-import { loadModels, modelsStatus, findModel, currentSettings, effectiveModelId, updateSettings, resetSettings, visualizeOn, setVisualize, servedModelId } from './models.js';
+import { loadModels, modelsStatus, findModel, currentSettings, effectiveModelId, updateSettings, resetSettings, visualizeOn, setVisualize, servedModelId, autoSelected } from './models.js';
 import { t } from './i18n.js';
 
 const usd = (n) => '$' + Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 3 });
@@ -75,7 +75,7 @@ function optionRow(m, onToggleHidden) {
     h(
       'span',
       { className: 'mo-top' },
-      h('span', { className: 'mo-name' }, m.id),
+      h('span', { className: 'mo-name' }, m.auto ? t('model.auto.label', { model: m.id }) : m.id),
       m.reasoning ? h('span', { className: 'badge badge-sm badge-soft badge-primary tag', title: t('model.reasoning.hint') }, t('model.reasoning.label')) : null,
       h('span', { className: 'mo-check' }, icon('check')),
     ),
@@ -114,27 +114,6 @@ export function mountPicker(container) {
     if (status === 'error') return container.replaceChildren(statusBlock({ kind: 'error', text: errorMessage, onRetry: loadModels }));
 
     const { models = [], effortLevels = [], serviceTiers = [] } = state.models;
-    // A routed agent (one whose provider resolves the real model per request, e.g. xellter) has no model to pick:
-    // the list is the provider's own catalogue, not something the app may choose from. Show the routing note only.
-    const routed = state.models?.routed === true;
-    if (routed) {
-      effort = null; tier = null;
-      visualize = switchControl({
-        label: t('model.visuals.title'),
-        hint: t('model.visuals.hint'),
-        onChange: (on) => setVisualize(on),
-      });
-      reset = h('button', { type: 'button', className: 'btn btn-sm btn-ghost', onClick: resetSettings }, t('model.reset'));
-      // The gateway's own answer about this conversation; absent until its first request, and never guessed.
-      const served = servedModelId();
-      container.replaceChildren(...[
-        h('p', { className: 'model-note', 'data-testid': 'model-routed' }, t('model.routed.note')),
-        served ? h('p', { className: 'model-note', 'data-testid': 'model-served' }, t('model.routed.served', { model: served })) : null,
-        h('div', { className: 'picker-opts' }, visualize.el, reset),
-      ].filter(Boolean));
-      sync();
-      return;
-    }
     const search = h('input', {
       type: 'search',
       className: 'input input-sm w-full',
@@ -154,7 +133,9 @@ export function mountPicker(container) {
       if (event.key === 'Enter') rows.find((row) => !row.hidden)?.firstElementChild.click();
     });
 
-    const notes = [...new Set([state.models.note, ...models.map((m) => m.note)].filter((n) => typeof n === 'string' && n))];
+    // The gateway's own answer about this conversation; absent until its first request, and never guessed.
+    const served = state.models?.routed === true && autoSelected() ? servedModelId() : null;
+    const notes = [...new Set([state.models.note, ...models.map((m) => m.note), state.models?.routed === true ? t('model.auto.note') : null, served ? t('model.routed.served', { model: served }) : null].filter((n) => typeof n === 'string' && n))];
     effort = segmented({
       label: t('model.effort.title'),
       options: [{ value: '', label: t('model.effort.default') }, ...effortLevels].map((o) =>
