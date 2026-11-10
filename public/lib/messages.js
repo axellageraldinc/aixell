@@ -291,6 +291,12 @@ export async function settleRun(sessionId, sinceSeconds) {
         continue;
       }
       if (turnSaved && answered) {
+        // The stored turn replaces the live reply: bring the gateway's model trail up to date first, or the footer loses its models.
+        try {
+          const { session } = await api(base);
+          if (token !== loadId || id !== state.sessionId) return false;
+          if (state.session) state.session = { ...state.session, web_models: session.web_models };
+        } catch { /* the footer then waits for the next load */ }
         cutoff = null;
         dropLive(visibleKey());
         renderThread();
