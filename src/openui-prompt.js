@@ -1,30 +1,31 @@
 // System-prompt fragment that teaches the model openui-lang: a compact, streaming-first language for
 // model-generated UI. It is added to a chat request only when the user turned Visualize on for that chat.
 //
-// Kept deliberately small (~1.4k tokens). The library's own generated prompt is ~8.5k tokens because it
-// documents all 84 components; this lists the 23 that make sense inside a chat reply. Every signature here
+// Kept deliberately small (~1.9k tokens). The library's own generated prompt is ~8.5k tokens because it
+// documents all 84 components; this lists the 24 that make sense inside a chat reply. Every signature here
 // must match @openuidev/react-ui 0.18 exactly — a component that is not registered fails to render.
 
 export const OPENUI_PROMPT = `## Visual blocks (openui-lang)
 
-The user wants answers that are concise and easy to scan. Aim for balance: not a wall of text, not a block on everything.
+The user prefers visuals over text. When an answer has structure, the visual block IS the answer; prose only frames it.
 
 Prose (always):
-- Lead with the answer in one or two sentences, then only the detail that adds value. No preamble, no recap.
-- Use markdown structure when it helps: short bullets, bold for the key term, a markdown table for 3+ items compared on 2+ attributes, indented sub-bullets for hierarchy, \`code\` for names and commands.
-- Replies with a single fact, a greeting, an opinion or a quick yes/no stay plain: one to three sentences, no block.
+- First line: the answer in one sentence. No preamble, no recap, no filler.
+- Short paragraphs (three sentences at most). Bold the key term once. Headings only when a reply has two or more sections.
+- Use markdown bullets or \`code\` for small things. Never write a markdown table or list that a block also shows.
+- A single fact, greeting, opinion or quick yes/no stays plain: one to three sentences, no block.
 
-Visual block (add one, at the end of the reply, when it makes the answer clearer than prose):
-- Table or EntityList: comparisons, specs, status, key/value facts, anything with several items and attributes.
+Visual block (use one whenever the answer has three or more items, any numbers, steps, a comparison, a timeline or a status):
+- Numbers: three or more comparable values get a chart. BarChart or HorizontalBarChart for comparing or ranking, LineChart or AreaChart over time, PieChart for at most five parts. A Table alongside is fine when exact values matter. Never draw a chart as an image file; use a chart component.
+- Table or EntityList: comparisons, specs, status, key/value facts.
 - Steps: a procedure of three or more steps.
-- Callout: one warning, caveat or key takeaway the user must not miss (at most one per reply).
-- Charts: only for numbers over time, rankings or parts of a whole. Do not force a chart onto non-numeric content.
-- FollowUpBlock: at most 2-3 genuinely useful next questions, only after a substantial answer.
-Keep the block small: the fewest components that carry the point. Never repeat in prose what the block already shows; the prose adds judgement, the block carries the data. Do not ask permission and do not offer to visualise. If the user says "visualize" or "pakai chart", a block is required in that reply.
+- Callout: only for a real risk, warning or must-not-miss caveat. Default is no Callout; never use one as decoration or as a summary.
+- FollowUpBlock: two or three genuinely useful next questions, only after a substantial answer.
+Prose adds judgement (one to three sentences), the block carries the data. Put the one-line answer first, then the block where it belongs; do not push the block behind long prose. Keep the block small: the fewest components that carry the point. Do not ask permission and do not offer to visualise.
 
 ### How to emit it
 
-Prose stays markdown, outside the fence. Put the program in one fenced block tagged \`openui\`, at the end of the reply:
+Prose stays markdown, outside the fence. Put the program in one fenced block tagged \`openui\`:
 
 \`\`\`openui
 root = Card([head, chart])
@@ -69,6 +70,7 @@ StepsItem(title, details) — one step.
 TagBlock(tags: string[], size?: "sm"|"md"|"lg") — a row of short labels.
 FollowUpBlock(items: FollowUpItem[]) — clickable next questions, at the very end of the card.
 FollowUpItem(text) — one suggestion; clicking it sends that text as the next message.
+Button(label, action?, variant?: "primary"|"secondary") — see Buttons and actions below.
 
 ### Buttons and actions
 
@@ -102,6 +104,29 @@ s1 = Series("Total", [90, 110, 105, 120])
 note = Callout("warning", "One-off cost", "October includes an annual renewal of $60.")
 next = FollowUpBlock([f1])
 f1 = FollowUpItem("Split the annual renewal per month")
+\`\`\`
+
+Chart-led answer (one-line answer in prose, then this):
+
+\`\`\`openui
+root = Card([head, chart, table])
+head = CardHeader("Spending by category", "October")
+chart = HorizontalBarChart(["Food", "Transport", "Bills", "Fun"], [s1], "grouped", "USD")
+s1 = Series("Spent", [420, 180, 310, 95])
+table = Table([cCat, cAmt])
+cCat = Col("Category", ["Food", "Transport", "Bills", "Fun"])
+cAmt = Col("USD", [420, 180, 310, 95], "number")
+\`\`\`
+
+How-to:
+
+\`\`\`openui
+root = Card([head, steps])
+head = CardHeader("Set up a backup", "About 10 minutes")
+steps = Steps([a, b, c])
+a = StepsItem("Pick a target", "An external disk or a cloud bucket.")
+b = StepsItem("Schedule it", "Run the job nightly.")
+c = StepsItem("Test a restore", "Restore one file and compare it.")
 \`\`\`
 
 ### Final check before you write the block
