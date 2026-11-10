@@ -1,8 +1,8 @@
 // System-prompt fragment that teaches the model openui-lang: a compact, streaming-first language for
 // model-generated UI. It is added to a chat request only when the user turned Visualize on for that chat.
 //
-// Kept deliberately small (~1.9k tokens). The library's own generated prompt is ~8.5k tokens because it
-// documents all 84 components; this lists the 24 that make sense inside a chat reply. Every signature here
+// Kept deliberately small (a few thousand tokens). The library's own generated prompt is ~8.5k tokens because it
+// documents all 84 components; this lists the ones that make sense inside a chat reply. Every signature here
 // must match @openuidev/react-ui 0.18 exactly — a component that is not registered fails to render.
 
 export const OPENUI_PROMPT = `## Visual blocks (openui-lang)
@@ -42,42 +42,92 @@ s1 = Series("USD", [18, 11, 3])
 - Arguments are POSITIONAL. Never write \`key: value\` — that form is not supported and fails silently.
 - Every variable except \`root\` must be referenced by another variable, or it is silently dropped.
 - Strings use double quotes with backslash escaping. Numbers are plain. Booleans are true/false.
-- Only the components below exist. Anything else fails to render, so do not invent components or props.
+- Only the components listed below exist. Anything else fails to render, so do not invent components or props.
 - Wrap every numeric axis value in the same unit; put the unit in the axis label or the series name, not in each number.
 
 ### Components
 
-Card(children: Component[], sources?: {title, sourceName, url}[]) — the root container. Optional sources render a Sources strip and back inline [n] citations in TextContent.
-CardHeader(title?, subtitle?) — heading with an optional subtitle.
-InlineHeader(heading, description?) — lighter section heading used inside a card.
-TextContent(text, size?: "small"|"default"|"large"|"small-heavy"|"large-heavy") — text block, supports markdown.
-Callout(variant: "info"|"warning"|"error"|"success"|"neutral", title, description) — banner for a caveat or a warning.
-Separator(orientation?: "horizontal"|"vertical", decorative?) — divider between sections.
-CodeBlock(language, codeString) — syntax-highlighted code.
-Table(columns: Col[]) — column-oriented table.
-Col(label, data: any[], type?: "string"|"number") — one column; \`number\` right-aligns with tabular figures.
-EntityList(rows: {left, right, rightVariant?: "text"|"number"}[], size?: "small"|"default", header?, footer?) — two-column key/value rows; header and footer take the same row shape.
-BarChart(labels: string[], series: Series[], variant?: "grouped"|"stacked", xLabel?, yLabel?, height?) — compare values across categories.
-HorizontalBarChart(labels: string[], series: Series[], variant?: "grouped"|"stacked", xLabel?, yLabel?) — prefer for ranked lists or long category names.
-LineChart(labels: string[], series: Series[], variant?: "linear"|"natural"|"step", xLabel?, yLabel?, height?) — trends over ordered categories.
-AreaChart(labels: string[], series: Series[], variant?: "linear"|"natural"|"step", xLabel?, yLabel?, height?) — cumulative totals or volume.
-PieChart(labels: string[], values: number[], variant?: "pie"|"donut") — parts of a whole; only for a few slices.
-Series(category: string, values: number[]) — one data series.
-ListBlock(items: ListItem[], variant?: "number"|"image", size?: "default"|"small") — ordered or plain list.
-ListItem(title, subtitle?, image?, actionLabel?, action?) — one list item; clickable only when given an action.
-Steps(items: StepsItem[]) — a numbered how-to.
-StepsItem(title, details) — one step.
-TagBlock(tags: string[], size?: "sm"|"md"|"lg") — a row of short labels.
-FollowUpBlock(items: FollowUpItem[]) — clickable next questions, at the very end of the card.
-FollowUpItem(text) — one suggestion; clicking it sends that text as the next message.
-Button(label, action?, variant?: "primary"|"secondary") — see Buttons and actions below.
+Pick by what the content is. Direct children of the root Card may be: TextContent, MarkDownRenderer, CardHeader, InlineHeader, Callout, TextCallout, CodeBlock, Separator, any chart, Table, TagBlock, Steps, EntityList, ListBlock, SnippetCardBlock, OverviewCardBlock, ContextCardBlock, CompositeCardBlock, SectionBlock, Tabs, Carousel, Buttons, IconButton, FollowUpBlock.
+
+Frame and text
+Card(children: Component[], sources?: {title, sourceName, url}[]) — the root. Optional sources render a Sources strip and back inline [n] citations in TextContent.
+CardHeader(title?, subtitle?) — the title of the whole card or of a Tab.
+InlineHeader(heading, description?) — a lighter heading for a section inside a card.
+TextContent(text, size?: "small"|"default"|"large"|"small-heavy"|"large-heavy") — a text block, supports markdown. Use it for the one-line takeaway or short notes.
+MarkDownRenderer(textMarkdown, variant?: "clear"|"card"|"sunk") — longer markdown; "card" or "sunk" boxes it.
+Callout(variant: "info"|"warning"|"error"|"success"|"neutral", title, description) — a banner, ONLY for a real risk, warning or must-not-miss caveat.
+TextCallout(variant?: "neutral"|"info"|"warning"|"success"|"danger", title?, description?) — a quiet inline note or quote; lighter than Callout.
+CodeBlock(language, codeString) — syntax-highlighted code, commands, config.
+Separator(orientation?: "horizontal"|"vertical", decorative?) — a divider between sections.
+Icon(name, category?) — a lucide icon by kebab-case name, e.g. "circle-check", "triangle-alert", "wallet". Only inside IconText, Tag, ChipItem and IconButton.
+Tag(text, icon?: Icon, size?: "sm"|"md"|"lg", variant?: "neutral"|"info"|"success"|"warning"|"danger") — one status badge (done, overdue, new).
+TagBlock(tags: string[], size?: "sm"|"md"|"lg") — a row of plain labels.
+
+Tables and key/values
+Table(columns: Col[]) — comparisons on two or more attributes, exact values.
+Col(label, data: any[], type?: "string"|"number"|"action") — one column; "number" right-aligns.
+EntityList(rows: {left, right, rightVariant?: "text"|"number"}[], size?: "small"|"default", header?, footer?) — two-column key/value facts, status, specs, totals.
+
+Charts (all values numeric; one unit per chart, put the unit in the axis label or Series name)
+BarChart(labels, series: Series[], variant?: "grouped"|"stacked", xLabel?, yLabel?, height?) — compare categories.
+HorizontalBarChart(labels, series: Series[], variant?: "grouped"|"stacked", xLabel?, yLabel?) — ranked lists, long labels.
+LineChart(labels, series: Series[], variant?: "linear"|"natural"|"step", xLabel?, yLabel?, height?) — trends over time.
+AreaChart(labels, series: Series[], variant?: "linear"|"natural"|"step", xLabel?, yLabel?, height?) — cumulative totals or volume over time.
+RadarChart(labels, series: Series[]) — one or more entities scored on the same 3-8 criteria (product comparison, skill profile).
+PieChart(labels: string[], values: number[], variant?: "pie"|"donut", appearance?: "circular"|"semiCircular") — parts of a whole, at most 5 slices.
+RadialChart(labels: string[], values: number[]) — a few values as radial bars, e.g. progress against targets.
+SingleStackedBarChart(labels: string[], values: number[]) — one bar split into parts: a budget split, a time split, a share.
+ScatterChart(datasets: ScatterSeries[], xLabel?, yLabel?) — a correlation or distribution between two numeric measures.
+Series(category, values: number[]) — one series for Bar, Line, Area and Radar.
+ScatterSeries(name, points: Point[]) / Point(x, y, z?) — datasets for ScatterChart.
+
+Lists and steps
+Steps(items: StepsItem[]) / StepsItem(title, details) — a procedure of three or more steps.
+ListBlock(items: ListItem[], variant?: "number", size?: "default"|"small") — an ordered ranking or a plain list; "small" is compact. Do not use variant "image".
+ListItem(title, subtitle?, image?, actionLabel?, action?) — pass null for image. Clickable only when given an action (5th argument).
+FollowUpBlock(items: FollowUpItem[]) / FollowUpItem(text) — clickable next questions, last in the card.
+
+Layout (for long or multi-part answers)
+SectionBlock(sections: SectionItem[], isFoldable?: boolean) / SectionItem(value, trigger, content: Component[]) — collapsible sections: put the headline in the card and fold the detail. \`value\` is a unique id.
+Tabs(items: TabItem[]) / TabItem(value, trigger, content: Component[]) — alternative views of the same subject (per option, per month, summary vs detail).
+Accordion(items: AccordionItem[]) / AccordionItem(value, trigger, content: Component[]) — collapsible Q&A or detail items.
+Carousel(children: Component[][]) — swipeable slides; every slide must have the same structure.
+Layout rule: never nest SectionBlock, Tabs, Accordion or Carousel inside each other.
+
+Cards (2 or more items of the same shape; every item in a block must have the same structure; layout "grid" or "carousel")
+SnippetCardBlock(items: SnippetCardItem[], layout?: "grid", responsive?, action?, gap?) / SnippetCardItem(id?, lhs: IconText, rhs?: Text|BoldText) — short facts side by side.
+OverviewCardBlock(items: OverviewCardItem[], layout?, responsive?, action?, gap?) / OverviewCardItem(id?, top: IconText|Text, bottom?: MetricIndicatorInline) — KPIs and headline numbers.
+ContextCardBlock(items: ContextCardItem[], layout?, responsive?, action?, gap?) / ContextCardItem(id?, title: string|Tag, body?, bgColor?: "gray") — short summaries, one per topic. Never set bgImageSrc.
+CompositeCardBlock(items: CompositeCardItem[], layout?, responsive?, action?, gap?) / CompositeCardItem(id?, header?: IconText|Text, body?: (Text|BoldText|MetricIndicatorInline|IconText|AreaChart|BarChart|LineChart|ListBlock|TagBlock|EntityList)[], footer?) — rich option cards: a plan, a product, a place, each with a small chart or list.
+Inline pieces, only INSIDE card items, never directly in the root Card:
+Text(variant?: "text"|"number", value, subtext?, subtextVariant?: "text"|"number"|"metric", size?: "xs"|"sm"|"md"|"lg") and BoldText(same) — a line, "number" for tabular figures.
+IconText(icon: Icon, iconVariant?: "neutral"|"info"|"success"|"warning"|"danger"|"inverted"|"filled"|"soft", iconSize?: "xs"|"s"|"m"|"l"|"xl", title, subtitle?, bold?, layout?: "horizontal"|"vertical") — an icon with a label.
+MetricIndicatorInline(value, subtext?, trend?: {direction: "up"|"down", value: number}) — a headline value with a +/- percent trend.
+MetricIndicatorWithStrikethrough(value, subtext?, previousValue?, trend?) — a new value next to the struck-through old one (price changes).
+
+Actions
+Button(label, action?, variant?: "primary"|"secondary"|"tertiary", type?: "normal"|"destructive", size?: "extra-small"|"small"|"medium"|"large") — see Buttons and actions below.
+Buttons(buttons: Button[], direction?: "row"|"column") — a group of buttons.
+IconButton(name, icon: Icon, action?, variant?, size?, shape?: "square"|"circle") — an icon-only button; name is its accessible label.
+
+Not available (do not use): any image component (Image, ImageBlock, ImageGallery, ImageText, ImageTextLarge, VisualCardBlock, background images, ListBlock "image"), because the app only loads local images, which are shown with a MEDIA: line in prose; and Form, Input, Select, EditableTable and other inputs, because a reply is read-only.
+
+### Which component for which situation
+
+- A set of numbers: pick the chart by the question (compare, rank, trend, share, correlation, profile), then optionally a Table of exact values.
+- A headline figure or KPIs: OverviewCardBlock with MetricIndicatorInline. Several short facts: SnippetCardBlock or EntityList.
+- Options to choose between: Table for attributes, RadarChart for scored criteria, CompositeCardBlock for rich options, Tabs when each option needs its own detail.
+- Status of several things: Table with Tag, or EntityList.
+- A long answer: headline and key visual first, the rest folded in SectionBlock or Accordion.
+- A procedure: Steps. Commands or code: CodeBlock.
+- A source for a claim: Card sources and [n] in TextContent.
 
 ### Buttons and actions
 
 A Button's action either sends a message to you or opens a URL:
 \`btn = Button("Show detail", @ToAssistant("Show the detail of the Netflix plan"), "secondary")\`
 \`link = Button("Open the page", @OpenUrl("https://example.com"), "secondary")\`
-Only use @ToAssistant and @OpenUrl. A Button with no action sends its own label, so give one only when you want that.
+Only use @ToAssistant (an optional second argument passes hidden context) and @OpenUrl; several steps go in Action([...]). A Button with no action sends its own label, so give one only when you want that.
 
 ### Examples
 
@@ -127,6 +177,27 @@ steps = Steps([a, b, c])
 a = StepsItem("Pick a target", "An external disk or a cloud bucket.")
 b = StepsItem("Schedule it", "Run the job nightly.")
 c = StepsItem("Test a restore", "Restore one file and compare it.")
+\`\`\`
+
+KPIs with folded detail:
+
+\`\`\`openui
+root = Card([head, kpis, more])
+head = CardHeader("This month", "Compared with September")
+kpis = OverviewCardBlock([k1, k2])
+k1 = OverviewCardItem("k1", t1, m1)
+t1 = IconText(i1, "info", "m", "Spent")
+i1 = Icon("wallet")
+m1 = MetricIndicatorInline("$1,005", "of $1,200 budget", {direction: "up", value: 8})
+k2 = OverviewCardItem("k2", t2, m2)
+t2 = IconText(i2, "success", "m", "Saved")
+i2 = Icon("piggy-bank")
+m2 = MetricIndicatorInline("$195", "left this month", {direction: "down", value: 3})
+more = SectionBlock([s1, s2])
+s1 = SectionItem("cats", "By category", [split])
+split = SingleStackedBarChart(["Food", "Bills", "Other"], [420, 310, 275])
+s2 = SectionItem("notes", "Notes", [note])
+note = TextContent("Bills were flat; food grew after the holiday.")
 \`\`\`
 
 ### Final check before you write the block
