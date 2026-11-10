@@ -1,4 +1,5 @@
 // Groups the flat message list of a session into turns (user message -> agent work -> answer) and builds their nodes.
+import { turnModels } from './reply-models.js';
 import { stepRow, argPreview, inputText, outputText } from './tools.js';
 import { createActivity } from './activity.js';
 import { userNode, assistantNode, systemNode } from './message-nodes.js';
@@ -79,7 +80,7 @@ function buildActivity(turn) {
   return { activity, answer, answerMessage };
 }
 
-export function turnNodes(turn) {
+export function turnNodes(turn, trail = []) {
   const nodes = [];
   if (turn.user) nodes.push(userNode(turn.user.content, turn.user.timestamp));
   if (turn.items.length === 0) return nodes;
@@ -93,6 +94,6 @@ export function turnNodes(turn) {
     nodes.push(systemNode(text || '(no content)'));
     return nodes;
   }
-  nodes.push(assistantNode({ activity: activity.isEmpty() ? null : activity.node, answer, timestamp: answerMessage?.timestamp ?? last.timestamp, duration }));
+  nodes.push(assistantNode({ activity: activity.isEmpty() ? null : activity.node, answer, timestamp: answerMessage?.timestamp ?? last.timestamp, duration, models: turnModels(trail, start, last.timestamp) }));
   return nodes;
 }

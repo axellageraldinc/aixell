@@ -138,6 +138,17 @@ const SERVED_MIN_GAP_MS = 4_000;
 
 export const servedModelId = () => (state.models?.routed === true ? served.get(sessionKey(state.agent, state.sessionId)) ?? null : null);
 
+// Set straight from a run's `web.model` event: the chip changes the moment the gateway names (or changes) the model.
+export function setServedModel(sessionId, model) {
+  const agent = state.agent;
+  if (!agent || !sessionId || !model) return;
+  const key = sessionKey(agent, sessionId);
+  servedToken.set(key, (servedToken.get(key) ?? 0) + 1); // an older read in flight must not overwrite it
+  if (served.get(key) === model) return;
+  served.set(key, model);
+  emit('models:served');
+}
+
 // Best effort: a gateway that cannot say (no traffic yet, no such endpoint) leaves the plain route name. `sessionId`
 // is explicit because a run reports it for the chat it belongs to, which need not be the chat on screen.
 export async function loadServedModel(sessionId = state.sessionId) {

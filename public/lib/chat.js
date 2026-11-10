@@ -4,7 +4,7 @@
 import { api, fetchRaw, toApiError, agentPath } from './api.js';
 import { readSse } from './sse.js';
 import { state, emit, on, sessionKey, saveLastSession, liveRun } from './state.js';
-import { chatOptions, adoptNewSessionSettings, markContextStale, hadLiveSeed, clearLiveSeed, loadServedModel } from './models.js';
+import { setServedModel, chatOptions, adoptNewSessionSettings, markContextStale, hadLiveSeed, clearLiveSeed, loadServedModel } from './models.js';
 import { createAssistantMessage } from './stream-message.js';
 import { userNode } from './message-nodes.js';
 import { appendUserMessage, addLive, removeLive, dropLive, rekeyLive, loadSession, settleRun } from './messages.js';
@@ -123,6 +123,7 @@ function ensureMessage(ctx) {
   if (ctx.message) return;
   ctx.message = createAssistantMessage({ startMs: ctx.run.startMs, skew: ctx.run.skew });
   addLive(ctx.key, ctx.message.node);
+  for (const model of ctx.models ?? []) ctx.message.noteModel(model);
 }
 
 const openStream = (ctx, sessionId) => fetchRaw(`${agentPath(ctx.agent)}/sessions/${encodeURIComponent(sessionId)}/stream`, { headers: { Accept: 'text/event-stream' }, signal: ctx.controller.signal });
@@ -236,6 +237,14 @@ function handleEvent(event, data, ctx) {
       run.startedAtServer = data.started_at;
       run.skew = data.now - Date.now();
       run.startMs = data.started_at - run.skew;
+      break;
+    case 'web.model':
+      // The gateway named (or changed) the real model serving this chat: show it at once and keep it for the reply.
+      if (typeof data.model === 'string' && data.model) {
+        if (!(ctx.models ??= []).includes(data.model)) ctx.models.push(data.model);
+        ctx.message?.noteModel(data.model);
+        setServedModel(data.session_id ?? run.sessionId ?? state.sessionId, data.model);
+      }
       break;
     case 'web.session':
       adoptSession(ctx, data.session_id);

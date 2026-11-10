@@ -97,6 +97,7 @@ export default {
   'chat.reconnecting': 'Connection lost, reconnecting…',
   'chat.reloadHistory': 'Reload history',
   'chat.reply.duration': 'Replied in {duration}',
+  'chat.reply.models': '{count} models',
   'chat.starter.explain.text': 'Explain in simple terms: ',
   'chat.starter.explain.title': 'Explain',
   'chat.starter.summarise.text': 'Summarise this text:\n\n',

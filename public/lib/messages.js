@@ -139,7 +139,7 @@ async function refreshLiveContext() {
     if (id !== state.sessionId || !liveRun(state.agent, id)) return;
     seedContext(state.agent, session);
     if (session.web_context && !session.web_context.approx) noteLiveSeed(sessionKey(state.agent, id));
-    if (state.session) state.session = { ...state.session, web_cost: session.web_cost, input_tokens: session.input_tokens, output_tokens: session.output_tokens, api_call_count: session.api_call_count };
+    if (state.session) state.session = { ...state.session, web_cost: session.web_cost, input_tokens: session.input_tokens, output_tokens: session.output_tokens, api_call_count: session.api_call_count, web_models: session.web_models };
     emit('context:changed');
   } catch {
     // The meter keeps its last value; the next step tries again.
@@ -240,7 +240,7 @@ function renderThread() {
   const live = nodesOf(visibleKey());
   const nodes = [];
   if (hasOlder) nodes.push(olderButton());
-  for (const turn of groupTurns(visible)) nodes.push(...turnNodes(turn));
+  for (const turn of groupTurns(visible)) nodes.push(...turnNodes(turn, state.session?.web_models));
   if (nodes.length === 0 && live.length === 0) nodes.push(statusBlock({ kind: 'empty', text: t('chat.empty') }));
   listEl.replaceChildren(...nodes, ...live);
   // A stored reply can carry a visual block: it can only be mounted once the thread is in the document.

@@ -29,6 +29,7 @@ import { rewindLastTurn } from './src/rewind.js';
 import { publicKey as pushKey, saveSubscription, removeSubscription, hasSubscription, lastFinished, notifyRunDone, notifyFollowup, sendTest } from './src/push.js';
 import { listFacts, updateFact, removeFact, readNotes, writeNotes, listSkills, readSkill, trashSkill } from './src/knowledge.js';
 import { startRun, findRun, runInfo, publish, attach, endRun, sseFrame } from './src/runs.js';
+import { getTrail, noteModel, forgetTrail } from './src/model-trail.js';
 import { getSettings, saveSettings, forgetSettings, getContext, saveContext } from './src/session-settings.js';
 import { priceOf, estimateCost, averagePrompt, loadPrices } from './src/pricing.js';
 import { getTemplates, setTemplates } from './src/templates.js';
@@ -477,12 +478,40 @@ async function streamChat(req, res, agent) {
 
 const SSE_HEADERS = { ...SECURITY_HEADERS, 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-store', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' };
 
+// While a reply runs on a routed gateway, watch which real model it is served by and tell the page the moment it
+// changes (a `web.model` event, also kept in the replay). Each change is saved with its time so a reloaded chat can
+// still name the model(s) behind every reply. Best effort: a gateway that cannot say leaves everything as it was.
+const MODEL_SAMPLE_MS = 1_500;
+function watchServedModel(run, agent, sessionId) {
+  let last = null;
+  let busy = false;
+  const sample = async () => {
+    if (busy || run.ended) return;
+    busy = true;
+    try {
+      const { model } = await getServedModel(agent, sessionId, { fresh: true });
+      if (model && model !== last && !run.ended) {
+        last = model;
+        const ts = Date.now() / 1000;
+        noteModel(agent.name, sessionId, model, ts);
+        publish(run, sseFrame('web.model', { session_id: sessionId, model, ts }));
+      }
+    } catch { /* keep the previous name */ } finally { busy = false; }
+  };
+  const timer = setInterval(sample, MODEL_SAMPLE_MS);
+  sample();
+  return async () => { clearInterval(timer); await sample(); };
+}
+
 async function pump(run, upstream, agent, sessionId, callsBefore, announce = true) {
+  const routed = providersFor(agent).config('models')?.routed === true;
+  const stopWatching = routed ? watchServedModel(run, agent, sessionId) : null;
   try {
     for await (const chunk of upstream.body) publish(run, chunk);
   } catch (error) {
     publish(run, sseFrame('error', { message: 'Connection to the agent was lost.', code: error.name }));
   }
+  if (stopWatching) await stopWatching();
   endRun(run);
   // A reply that finished on its own: tell the devices that asked to hear about long ones (the service worker stays
   // silent when the app is open in front of you).
@@ -752,7 +781,7 @@ async function apiRoute(req, res, url, session) {
         const context = exact ? { tokens: exact, approx: false } : (getContext(agent.name, idOrRun) ?? (averagePrompt(session) ? { tokens: averagePrompt(session), approx: true } : null));
         await loadPrices(agent);
         const web_cost = estimateCost(session, priceOf(agent, session.model));
-        return sendJson(res, 200, { ...data, session: { ...session, web_run: runInfo(agent.name, idOrRun), web_settings: getSettings(agent.name, idOrRun), web_context: context, web_cost } });
+        return sendJson(res, 200, { ...data, session: { ...session, web_run: runInfo(agent.name, idOrRun), web_settings: getSettings(agent.name, idOrRun), web_context: context, web_cost, web_models: getTrail(agent.name, idOrRun) } });
       }
       if (tail === 'rewind' && method === 'POST') {
         await webSession(agent, idOrRun);
@@ -783,6 +812,7 @@ async function apiRoute(req, res, url, session) {
           try { await remove(); } catch (retry) { throw retry.code === 'session_active_turn' ? busy : retry; }
         }
         forgetSettings(agent.name, idOrRun);
+        forgetTrail(agent.name, idOrRun);
         return sendJson(res, 200, { ok: true });
       }
     }

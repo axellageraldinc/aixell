@@ -95,7 +95,7 @@ const SERVED_TTL_MS = 3_000;
 const SERVED_CACHE_MAX = 200;
 const servedCache = new Map();
 
-export async function getServedModel(agent, sessionId) {
+export async function getServedModel(agent, sessionId, { fresh = false } = {}) {
   const registry = providersFor(agent);
   const conf = registry.config('models');
   if (conf?.routed !== true) return { routed: false, model: null, models: [] };
@@ -104,7 +104,7 @@ export async function getServedModel(agent, sessionId) {
   if (!path || typeof provider?.call !== 'function') return { routed: true, model: null, models: [] };
   const cacheKey = `${agent.name}|${sessionId}`;
   const hit = servedCache.get(cacheKey);
-  if (hit && Date.now() - hit.at < SERVED_TTL_MS) return hit.value;
+  if (!fresh && hit && Date.now() - hit.at < SERVED_TTL_MS) return hit.value;
   let value = { routed: true, model: null, models: [] };
   try {
     const query = `${path}${path.includes('?') ? '&' : '?'}session=${encodeURIComponent(sessionId)}`;

@@ -65,9 +65,13 @@ export function userNode(content, timestamp, files = null) {
   );
 }
 
-// Meta line with time, total time cost and a copy button. update() fills it once the reply is complete.
+// Meta line with time, total time cost, the real model(s) behind the reply and a copy button. update() fills it once the
+// reply is complete, and can be called again (a model noted late). One or two models are named in the line ("a → b");
+// three or more collapse into "3 models", which opens the full list in order underneath, so the line never grows long.
 export function assistantMeta(getText) {
   const info = h('span', { 'data-testid': 'reply-meta' });
+  const models = h('span', { className: 'meta-models', 'data-testid': 'reply-models', hidden: true });
+  const list = h('ol', { className: 'meta-model-list', 'data-testid': 'reply-model-list', hidden: true });
   const copy = h(
     'button',
     { type: 'button', className: 'ibtn ibtn-sm', 'aria-label': t('chat.message.copy'), title: t('chat.message.copy') },
@@ -78,14 +82,37 @@ export function assistantMeta(getText) {
       copy.replaceChildren(icon(ok ? 'check' : 'copy', 14));
     }),
   );
-  const el = h('div', { className: 'meta', hidden: true }, info, copy);
+  const row = h('div', { className: 'meta' }, info, models, copy);
+  const el = h('div', { className: 'meta-wrap', hidden: true }, row, list);
+  let state = { timestamp: null, duration: null, models: [] };
+  const paintModels = () => {
+    const names = state.models;
+    models.replaceChildren();
+    list.replaceChildren();
+    list.hidden = true;
+    models.hidden = names.length === 0;
+    if (names.length === 0) return;
+    if (names.length <= 2) {
+      models.append(h('span', { className: 'meta-model', title: names.join(' → ') }, names.join(' → ')));
+      return;
+    }
+    const toggle = h('button', { type: 'button', className: 'meta-models-toggle', 'aria-expanded': 'false', title: names.join(' → ') }, t('chat.reply.models', { count: names.length }));
+    toggle.addEventListener('click', () => {
+      list.hidden = !list.hidden;
+      toggle.setAttribute('aria-expanded', String(!list.hidden));
+    });
+    names.forEach((name) => list.append(h('li', {}, name)));
+    models.append(toggle);
+  };
   return {
     el,
-    update({ timestamp = null, duration = null } = {}) {
+    update(next = {}) {
+      state = { ...state, ...Object.fromEntries(Object.entries(next).filter(([, v]) => v !== undefined)) };
       info.textContent = [
-        timestamp == null ? '' : fmtDateTime(timestamp),
-        duration == null ? '' : t('chat.reply.duration', { duration: fmtDuration(duration) }),
+        state.timestamp == null ? '' : fmtDateTime(state.timestamp),
+        state.duration == null ? '' : t('chat.reply.duration', { duration: fmtDuration(state.duration) }),
       ].filter(Boolean).join(' · ');
+      paintModels();
       el.hidden = false;
     },
   };
@@ -96,9 +123,9 @@ export const systemNode = (content) => h('p', { className: 'msg-note' }, content
 export const fileSizeLabel = fmtBytes;
 
 // activity: an Activity group node or null. Used for history; the live message builds the same parts incrementally.
-export function assistantNode({ activity = null, answer = '', timestamp = null, duration = null }) {
+export function assistantNode({ activity = null, answer = '', timestamp = null, duration = null, models = [] }) {
   const meta = assistantMeta(() => answer);
   const parts = [activity, answer.trim() ? renderMarkdown(answer) : null];
-  if (parts.some(Boolean) || duration != null) meta.update({ timestamp, duration });
+  if (parts.some(Boolean) || duration != null) meta.update({ timestamp, duration, models });
   return h('article', { className: 'msg msg-assistant', 'data-testid': 'message-assistant' }, parts, meta.el);
 }

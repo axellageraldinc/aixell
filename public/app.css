@@ -1346,3 +1346,14 @@ body { overflow-x: clip; max-width: 100%; }
   .main.is-new .hero h2 { font-size: 22px; }
 }
 .thread, .session-list { overflow-x: hidden; }
+
+/* Real model(s) behind a reply (routed gateway): named in the meta line, collapsed to "N models" when there are many. */
+.meta-wrap[hidden] { display: none; }
+.meta-models { min-width: 0; display: inline-flex; }
+.meta-models::before { content: '·'; margin-right: 4px; }
+.meta-model, .meta-models-toggle { min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.meta-models-toggle { background: none; border: 0; padding: 0; font: inherit; color: inherit; cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px; }
+.meta-model-list { margin: 2px 0 6px; padding-left: 20px; font-size: 12px; color: var(--fgColor-muted); }
+.meta-model-list[hidden] { display: none; }
+.meta-model-list li { overflow-wrap: anywhere; }
+@media (max-width: 640px) { .meta { flex-wrap: nowrap; } .meta > span:first-child { flex: none; } .meta .meta-models { flex: 1 1 0; } }

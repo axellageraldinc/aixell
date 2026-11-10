@@ -38,6 +38,8 @@ export function createAssistantMessage({ startMs = Date.now(), skew = 0 } = {}) 
   const workingText = h('span', {});
   const working = h('p', { className: 'working', 'data-testid': 'working' }, h('span', { className: 'loading loading-dots loading-sm', 'aria-hidden': 'true' }), workingText);
   const content = h('div', { className: 'stream-content' });
+  const modelsSeen = []; // real models behind this reply, in the order the gateway served them
+  let finished = false;
   const meta = assistantMeta(() => segments.map((s) => s.text).join('\n\n'));
   const node = h('article', { className: 'msg msg-assistant is-streaming', 'data-testid': 'message-assistant' }, activity.node, content, working, meta.el);
   const stopWorking = onTick(() => {
@@ -194,7 +196,15 @@ export function createAssistantMessage({ startMs = Date.now(), skew = 0 } = {}) 
       // A reply that was a single model call with no tools and no reasoning has nothing worth listing.
       if (tools.length === 0 && !lastThinkingRow?.hasText()) activity.node.hidden = true;
       activity.setTotal(elapsed);
-      if (!partial && (segments.some((s) => s.text.trim()) || !activity.isEmpty())) meta.update({ timestamp: Date.now() / 1000, duration: elapsed });
+      if (!partial && (segments.some((s) => s.text.trim()) || !activity.isEmpty())) meta.update({ timestamp: Date.now() / 1000, duration: elapsed, models: modelsSeen });
+      finished = true;
     },
+    // A routed gateway named the model now serving this reply (it may change between model calls).
+    noteModel(model) {
+      if (!model || modelsSeen.at(-1) === model) return;
+      if (!modelsSeen.includes(model)) modelsSeen.push(model);
+      if (finished) meta.update({ models: modelsSeen });
+    },
+    modelsSeen: () => [...modelsSeen],
   };
 }
