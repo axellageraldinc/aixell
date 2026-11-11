@@ -113,6 +113,11 @@ A **routed** catalogue (`capabilities.models.routed`, a gateway that picks the r
 `{ current, effortLevels:["none"], serviceTiers:["default"], routed:true, models:[{id: current.model, ...}] }`: there is
 nothing to choose, so the picker shows the route instead of a list.
 
+With `capabilities.models.sources` (several providers) the answer also has `sources:[{provider,label,routed}]`, and every model
+has `provider` (what a pick sends back), `source` (the group label) and, for a routed source's single entry, `routed:true`.
+`routed:true` at the top level is set only when every entry is routed. A source that fails to list is skipped. A chat whose
+`{provider, model}` is not in the list is refused with `400 bad_model`.
+
 ### `GET /api/agents/:a/models/served?session=<id>`
 Only a routed gateway that declares `servedModelPath` can answer it: the server asks the gateway which real model that
 conversation is on (the gateway's own session endpoint) and returns

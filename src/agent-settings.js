@@ -48,7 +48,7 @@ export function setDefaultModel(agentName, { model = '', provider = '', effort =
 export function applyDefaultModel(agentName, data) {
   const d = getDefaultModel(agentName);
   const out = { ...data, agentDefault: data.current };
-  const known = d.model ? data.models?.find((m) => m.id === d.model) : null;
+  const known = d.model ? data.models?.find((m) => m.id === d.model && (!d.provider || !m.provider || m.provider === d.provider)) ?? data.models?.find((m) => m.id === d.model) : null;
   if (known) out.current = { provider: d.provider || known.provider || data.current?.provider, model: known.id };
   if (d.effort) out.defaultEffort = d.effort;
   return out;

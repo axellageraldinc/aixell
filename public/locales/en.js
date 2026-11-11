@@ -436,6 +436,8 @@ export default {
   'model.reasoning.label': 'Reasoning',
   'model.reset': 'Reset to agent default',
   'model.routed.note': 'This agent is routed by the gateway: it picks the real model for every request, so there is nothing to choose here.',
+  'model.auto.name': 'Auto ({route})',
+  'model.auto.meta': 'The gateway picks the real model for every request.',
   'model.routed.served': 'Serving this chat now: {model}.',
   'model.search.label': 'Search models',
   'model.search.placeholder': 'Search models',

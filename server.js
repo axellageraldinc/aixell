@@ -13,7 +13,7 @@ import { createSessionStore, sessionFile } from './src/web-sessions.js';
 import { createBridge } from './src/browser-bridge.js';
 import { bind as bindChat, bindingOf, byKey as chatByKey, extSessionOf } from './src/ext-chats.js';
 import { agentFetch, agentJson, getAgent, isOnline, listAgentDefinitions, publicAgent } from './src/agents.js';
-import { getModels, getServedModel } from './src/models.js';
+import { getModels, getServedModel, isRoutedChat, isOfferedModel } from './src/models.js';
 import { coverFile, listCovers, makeCover, removeCover, thumbFile } from './src/covers.js';
 import { setModelHidden } from './src/hidden-models.js';
 import { getProviderUsage } from './src/provider-usage.js';
@@ -409,6 +409,7 @@ async function streamChat(req, res, agent) {
       payload[key] = body[key];
     }
   }
+  if (payload.model && !(await isOfferedModel(agent, payload.provider, payload.model))) throw new HttpError(400, 'That model is not offered.', 'bad_model');
   // A spoken turn asks for the speech capability's `chatModel` when one is set: a pool of fast models, because the answer is
   // waiting to be heard. It replaces the model picked in the chat for that turn only.
   if (body.spoken === true) {
@@ -504,7 +505,7 @@ function watchServedModel(run, agent, sessionId) {
 }
 
 async function pump(run, upstream, agent, sessionId, callsBefore, announce = true) {
-  const routed = providersFor(agent).config('models')?.routed === true;
+  const routed = isRoutedChat(agent, getSettings(agent.name, sessionId)?.provider);
   const stopWatching = routed ? watchServedModel(run, agent, sessionId) : null;
   try {
     for await (const chunk of upstream.body) publish(run, chunk);

@@ -153,6 +153,30 @@ answers `{model, models}`) and the composer names it beside the route:
 { "capabilities": { "models": { "provider": "gateway", "routed": true, "servedModelPath": "/session" } } }
 ```
 
+**Several model sources.** To choose models from more than one provider in the chat picker (a routed gateway next to
+OpenRouter, a local Ollama, a plain OpenAI-compatible API, ...), give `models` a list of `sources` instead:
+
+```json
+{ "capabilities": { "models": { "sources": [
+  { "provider": "gateway", "routed": true, "model": "auto", "label": "Auto" },
+  { "provider": "openrouter", "hermesProvider": "openrouter", "allow": ["vendor/model-a", "vendor/model-b"] },
+  { "provider": "local", "hermesProvider": "local-llm" },
+  { "hermesProvider": "other", "models": ["model-x", "model-y"] }
+] } } }
+```
+
+- `provider`: the id of an `openai-compatible` provider in `providers`; its model list fills the source. Leave it out and give
+  `models: [ids]` for a fixed list.
+- `hermesProvider`: the provider name the Hermes agent runs the chat on (a built-in one, or a key under `providers:` in the
+  agent profile's `config.yaml`). A pick sends it as `provider`. Defaults to `provider`. The chat's API key lives in
+  Hermes; the app's own provider entry is only used to list models.
+- `allow`: only these ids are shown. Without it the usual per-provider hide list applies.
+- `routed`, `model`, `servedModelPath`: as above. A routed source is one "Auto" row, with `model` as the route name sent.
+- `label`: the heading of the group in the picker.
+
+With `sources` the server rejects a chat whose `{provider, model}` is not one of the listed entries. Pricing and usage
+use the first source that has a catalog. Without `sources`, nothing changes.
+
 ### `x-api`: social search through the official X API
 
 Implements `socialSearch` against the recent-search endpoint (`GET https://api.x.com/2/tweets/search/recent`), so the X

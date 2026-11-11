@@ -6,9 +6,12 @@ let status = 'loading'; // 'loading' | 'ready' | 'error'
 let errorMessage = '';
 
 export const modelsStatus = () => ({ status, errorMessage });
-export const findModel = (id) => state.models?.models.find((m) => m.id === id) ?? null;
+export const findModel = (id, provider) => state.models?.models.find((m) => m.id === id && (!provider || !m.provider || m.provider === provider)) ?? state.models?.models.find((m) => m.id === id) ?? null;
 export const currentSettings = () => state.settings.get(sessionKey(state.agent, state.sessionId)) ?? {};
 export const effectiveModelId = () => currentSettings().model ?? state.models?.current?.model ?? null;
+export const effectiveProviderId = () => currentSettings().provider ?? state.models?.current?.provider ?? null;
+// Whether the open chat runs on a routed source (a gateway that picks the real model per request).
+export const onRoutedSource = () => state.models?.routed === true || findModel(effectiveModelId(), effectiveProviderId())?.routed === true;
 
 // silent: refresh in place (the list stays on screen) - used when the picker opens, so models switched off in the
 // provider console disappear without a page reload.
@@ -26,7 +29,7 @@ export async function loadModels({ silent = false } = {}) {
     state.models = data;
     status = 'ready';
     // A routed gateway knows the real model of the open chat; ask once the catalogue says it is routed.
-    if (data.routed === true) loadServedModel();
+    if (data.routed === true || data.models?.some((m) => m.routed)) loadServedModel();
   } catch (err) {
     if (agent !== state.agent || (silent && state.models)) return;
     status = 'error';
@@ -40,7 +43,7 @@ export async function loadModels({ silent = false } = {}) {
 // A plain catalogue knows which of its models can think, so an effort is only offered for those. A routed
 // gateway (xellter) resolves the real model per request and its catalogue entry carries no such flag, so the
 // flag would silently drop the effort the owner picked. The gateway decides what to do with it.
-const effortAllowed = (model) => state.models?.routed === true || findModel(model)?.reasoning === true;
+const effortAllowed = (model, provider) => state.models?.routed === true || findModel(model, provider)?.routed === true || findModel(model, provider)?.reasoning === true;
 
 // Options sent with every chat request: only what the user picked plus the model the UI shows.
 export function chatOptions() {
@@ -52,7 +55,7 @@ export function chatOptions() {
   if (model) options.model = model;
   if (provider) options.provider = provider;
   const effort = s.reasoningEffort ?? state.models?.defaultEffort;
-  if (effort && effortAllowed(model)) options.reasoningEffort = effort;
+  if (effort && effortAllowed(model, provider)) options.reasoningEffort = effort;
   if (s.serviceTier) options.serviceTier = s.serviceTier;
   // Visualize is on unless this chat switched it off; the server only adds the grammar prompt when it is true.
   if (s.visualize !== false) options.visualize = true;
@@ -136,7 +139,7 @@ const servedAt = new Map(); // key -> ms of the last read attempt (throttle)
 const servedToken = new Map(); // key -> newest read, so an older answer cannot overwrite it
 const SERVED_MIN_GAP_MS = 4_000;
 
-export const servedModelId = () => (state.models?.routed === true ? served.get(sessionKey(state.agent, state.sessionId)) ?? null : null);
+export const servedModelId = () => (onRoutedSource() ? served.get(sessionKey(state.agent, state.sessionId)) ?? null : null);
 
 // Set straight from a run's `web.model` event: the chip changes the moment the gateway names (or changes) the model.
 export function setServedModel(sessionId, model) {
@@ -153,7 +156,7 @@ export function setServedModel(sessionId, model) {
 // is explicit because a run reports it for the chat it belongs to, which need not be the chat on screen.
 export async function loadServedModel(sessionId = state.sessionId) {
   const agent = state.agent;
-  if (!agent || !sessionId || state.models?.routed !== true) return;
+  if (!agent || !sessionId || !onRoutedSource()) return;
   const key = sessionKey(agent, sessionId);
   const now = Date.now();
   if (now - (servedAt.get(key) ?? 0) < SERVED_MIN_GAP_MS) return;

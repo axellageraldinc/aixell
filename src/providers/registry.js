@@ -44,6 +44,12 @@ export function buildRegistry(cfg, ctx, types) {
       const first = (capabilities.writer.chain ?? []).find((e) => !e.paid) ?? capabilities.writer.chain?.[0];
       conf = { provider: capabilities.writer.provider, chain: first ? [{ model: first.model }] : [], derived: true };
     }
+    // A models capability with several sources (`sources: [...]`) binds to the first source whose provider has a catalog,
+    // which then serves pricing and usage; the picker itself reads every source (see src/models.js).
+    if (name === 'models' && conf && !conf.provider && Array.isArray(conf.sources)) {
+      const first = conf.sources.find((c) => c && instances.get(c.provider)?.catalog);
+      conf = { ...conf, provider: first?.provider };
+    }
     const instance = conf ? instances.get(conf.provider) : null;
     if (!instance) return { conf: conf ?? null, instance: null, impl: null };
     let impl = instance[IMPL[name]] ?? null;

@@ -9,7 +9,7 @@ import { segmented } from './segmented.js';
 import { bindListNav } from './popover.js';
 import { api, agentPath } from './api.js';
 import { notify } from './ui.js';
-import { loadModels, modelsStatus, findModel, currentSettings, effectiveModelId, updateSettings, resetSettings, visualizeOn, setVisualize, servedModelId } from './models.js';
+import { loadModels, modelsStatus, findModel, currentSettings, effectiveModelId, effectiveProviderId, updateSettings, resetSettings, visualizeOn, setVisualize, servedModelId } from './models.js';
 import { t } from './i18n.js';
 
 const usd = (n) => '$' + Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 3 });
@@ -70,17 +70,18 @@ function optionRow(m, onToggleHidden) {
       tabindex: -1,
       'data-testid': 'model-option',
       'data-model': m.id,
+      'data-provider': m.provider ?? '',
       onClick: () => select(m),
     },
     h(
       'span',
       { className: 'mo-top' },
-      h('span', { className: 'mo-name' }, m.id),
+      h('span', { className: 'mo-name' }, m.routed ? (m.id.toLowerCase() === 'auto' ? 'Auto' : t('model.auto.name', { route: m.id })) : m.id),
       m.reasoning ? h('span', { className: 'badge badge-sm badge-soft badge-primary tag', title: t('model.reasoning.hint') }, t('model.reasoning.label')) : null,
       h('span', { className: 'mo-check' }, icon('check')),
     ),
-    h('span', { className: 'mo-meta' }, metaLine(m)),
-    modalityLine(m),
+    h('span', { className: 'mo-meta' }, m.routed ? t('model.auto.meta') : metaLine(m)),
+    m.routed ? null : modalityLine(m),
   );
   const toggle = h(
     'button',
@@ -95,7 +96,7 @@ function optionRow(m, onToggleHidden) {
     },
     icon(m.hidden ? 'eye' : 'eye-off', 14),
   );
-  return h('div', { className: m.hidden ? 'model-row is-hidden-model' : 'model-row', 'data-model': m.id }, option, toggle);
+  return h('div', { className: m.hidden ? 'model-row is-hidden-model' : 'model-row', 'data-model': m.id, 'data-provider': m.provider ?? '' }, option, m.routed ? null : toggle);
 }
 
 export function mountPicker(container) {
@@ -148,7 +149,16 @@ export function mountPicker(container) {
     const hiddenToggle = hiddenCount
       ? h('button', { type: 'button', className: 'btn btn-sm btn-ghost hidden-toggle', 'data-testid': 'hidden-models-toggle', onClick: () => { showHidden = !showHidden; filter(search.value); hiddenToggle.textContent = hiddenLabel(hiddenCount); } }, hiddenLabel(hiddenCount))
       : null;
-    list.append(...rows, ...(hiddenToggle ? [hiddenToggle] : []));
+    // With several sources the list is grouped: a small heading above the first row of each source.
+    const grouped = (state.models.sources?.length ?? 0) > 1;
+    let lastSource = null;
+    const withHeads = [];
+    rows.forEach((row, i) => {
+      const source = models[i].source;
+      if (grouped && source !== lastSource) { withHeads.push(h('div', { className: 'model-group', 'data-testid': 'model-group', role: 'presentation' }, source ?? '')); lastSource = source; }
+      withHeads.push(row);
+    });
+    list.append(...withHeads, ...(hiddenToggle ? [hiddenToggle] : []));
     if (rows.length === 0) list.append(statusBlock({ kind: 'empty', text: t('model.empty') }));
     search.addEventListener('keydown', (event) => {
       if (event.key === 'Enter') rows.find((row) => !row.hidden)?.firstElementChild.click();
@@ -200,6 +210,7 @@ export function mountPicker(container) {
 
   function filter(query) {
     const needle = query.trim().toLowerCase();
+    for (const head of container.querySelectorAll('.model-group')) head.hidden = needle !== '';
     for (const row of rows) {
       const hiddenModel = row.classList.contains('is-hidden-model');
       row.hidden = (needle !== '' && !row.dataset.model.toLowerCase().includes(needle)) || (hiddenModel && !showHidden);
@@ -210,8 +221,12 @@ export function mountPicker(container) {
     if (!state.models) return;
     const s = currentSettings();
     const selected = effectiveModelId();
-    for (const row of rows) row.firstElementChild.setAttribute('aria-selected', String(row.dataset.model === selected));
-    effort?.set(s.reasoningEffort ?? state.models.defaultEffort ?? '', !findModel(selected)?.reasoning);
+    const selectedProvider = effectiveProviderId();
+    const sameProvider = (row) => !selectedProvider || !row.dataset.provider || row.dataset.provider === selectedProvider;
+    const hasExact = rows.some((row) => row.dataset.model === selected && sameProvider(row));
+    for (const row of rows) row.firstElementChild.setAttribute('aria-selected', String(row.dataset.model === selected && (sameProvider(row) || !hasExact)));
+    const picked = findModel(selected, selectedProvider);
+    effort?.set(s.reasoningEffort ?? state.models.defaultEffort ?? '', !(picked?.reasoning || picked?.routed));
     tier?.set(s.serviceTier ?? state.models.serviceTiers?.[0] ?? 'default');
     visualize?.set(visualizeOn());
     if (reset) reset.disabled = Object.keys(s).length === 0;

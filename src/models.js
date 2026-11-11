@@ -4,6 +4,7 @@ import { config, EFFORT_LEVELS, SERVICE_TIERS } from './config.js';
 import { readEnvValue } from './agents.js';
 import { hiddenCheck } from './hidden-models.js';
 import { providersFor } from './providers/compat.js';
+import { getSettings } from './session-settings.js';
 
 // OpenCode Go subscription limits ($10/month plan), approximate, from https://opencode.ai/docs/go (read 14 Oct 2026).
 // Real usage can differ; models that are not listed are deliberately left null (never guessed).
@@ -65,26 +66,71 @@ async function liveModelIds(agent) {
   return ids;
 }
 
-// A configured catalog provider: its own list of models, with its own prices and modalities.
-// A `routed` catalog (a gateway that resolves the real model per request, e.g. xellter) has nothing to choose from:
-// its /models answer is the set of presets it serves, not chat models, so the picker shows the route instead of a list.
-async function getCatalogModels(agent, catalog, routed = false) {
-  const isHidden = hiddenCheck(agent.provider);
-  const base = { current: { provider: agent.provider, model: agent.model }, effortLevels: EFFORT_LEVELS, serviceTiers: ['default'] };
-  if (routed) {
-    return { ...base, routed: true, models: [{ id: agent.model, provider: agent.provider, reasoning: false, contextWindow: null, modalities: null, hidden: false, price: null, quota: null, note: null }] };
+// The sources of the model picker. `capabilities.models` is either one source ({ provider, routed?, servedModelPath? }) or
+// a list ({ sources: [...] }). A source is:
+//   provider         aixell provider id whose catalog lists the models (omit it and give `models: [ids]` for a fixed list)
+//   hermesProvider   the provider name Hermes runs the chat on (default: the agent's own provider for the single form,
+//                    else `provider`); this is what a pick sends as `provider`
+//   routed, model, servedModelPath, label, allow   see docs/configuration.md
+export function modelSources(agent) {
+  const registry = providersFor(agent);
+  const conf = registry.config('models');
+  if (!conf) return [];
+  const list = Array.isArray(conf.sources) ? conf.sources : [conf];
+  const single = !Array.isArray(conf.sources);
+  return list.filter((c) => c && typeof c === 'object').map((c) => {
+    const providerId = typeof c.provider === 'string' ? c.provider : null;
+    const hermesProvider = typeof c.hermesProvider === 'string' && c.hermesProvider ? c.hermesProvider : single ? agent.provider : providerId ?? agent.provider;
+    return {
+      providerId, hermesProvider,
+      label: typeof c.label === 'string' && c.label ? c.label : hermesProvider,
+      routed: c.routed === true,
+      model: typeof c.model === 'string' && c.model ? c.model : null,
+      servedModelPath: typeof c.servedModelPath === 'string' ? c.servedModelPath.trim() : '',
+      allow: Array.isArray(c.allow) ? c.allow.filter((id) => typeof id === 'string') : null,
+      fixed: Array.isArray(c.models) ? c.models.filter((id) => typeof id === 'string') : null,
+      catalog: single ? registry.get('models') : (providerId ? registry.instances.get(providerId)?.catalog ?? null : null),
+      instance: single ? registry.provider('models') : (providerId ? registry.instances.get(providerId) ?? null : null),
+    };
+  });
+}
+
+const sourceOfProvider = (agent, hermesProvider) => {
+  const sources = modelSources(agent);
+  return sources.find((s) => s.hermesProvider === hermesProvider) ?? (hermesProvider ? null : sources[0] ?? null);
+};
+
+// What a source lists. A routed source has nothing to choose from: its /models answer is the set of presets it serves, not
+// chat models, so it shows one entry, the route. A failing source lists nothing and never takes the others down.
+async function listSource(agent, source, grouped) {
+  const isHidden = hiddenCheck(source.hermesProvider);
+  const entry = (m) => ({
+    id: m.id, provider: source.hermesProvider,
+    reasoning: m.reasoning ?? true, contextWindow: m.contextWindow ?? null, modalities: m.modalities ?? null,
+    hidden: source.allow ? !source.allow.includes(m.id) : isHidden(m.id),
+    price: m.price ?? null, quota: m.quota ?? null, note: m.note ?? null,
+    ...(grouped ? { source: source.label } : {}),
+  });
+  if (source.routed) {
+    const id = source.model ?? agent.model;
+    return [{ ...entry({ id, reasoning: false }), routed: true, hidden: false }];
   }
-  const models = (await catalog.listModels({ currentModel: agent.model })).map((m) => ({
-    id: m.id, provider: agent.provider,
-    reasoning: m.reasoning,
-    contextWindow: m.contextWindow,
-    modalities: m.modalities,
-    hidden: isHidden(m.id),
-    price: m.price,
-    quota: m.quota,
-    note: m.note,
-  }));
-  return { ...base, models };
+  if (source.fixed) return source.fixed.map((id) => entry({ id }));
+  if (!source.catalog) return [];
+  return (await source.catalog.listModels({ currentModel: agent.model })).map(entry);
+}
+
+async function getCatalogModels(agent, sources) {
+  const settled = await Promise.allSettled(sources.map((s) => listSource(agent, s, sources.length > 1)));
+  const models = settled.flatMap((r) => (r.status === 'fulfilled' ? r.value : []));
+  const routed = models.length > 0 && models.every((m) => m.routed);
+  return {
+    current: { provider: agent.provider, model: agent.model },
+    effortLevels: EFFORT_LEVELS, serviceTiers: ['default'],
+    ...(routed ? { routed: true } : {}),
+    sources: sources.map((s) => ({ provider: s.hermesProvider, label: s.label, routed: s.routed })),
+    models,
+  };
 }
 
 // A routed gateway can also say which real model a conversation is on (`capabilities.models.servedModelPath`, e.g.
@@ -96,11 +142,11 @@ const SERVED_CACHE_MAX = 200;
 const servedCache = new Map();
 
 export async function getServedModel(agent, sessionId, { fresh = false } = {}) {
-  const registry = providersFor(agent);
-  const conf = registry.config('models');
-  if (conf?.routed !== true) return { routed: false, model: null, models: [] };
-  const provider = registry.provider('models');
-  const path = typeof conf.servedModelPath === 'string' ? conf.servedModelPath.trim() : '';
+  const chatProvider = getSettings(agent.name, sessionId)?.provider;
+  const source = sourceOfProvider(agent, chatProvider || null) ?? modelSources(agent).find((s) => s.routed) ?? null;
+  if (!source?.routed) return { routed: false, model: null, models: [] };
+  const provider = source.instance;
+  const path = source.servedModelPath;
   if (!path || typeof provider?.call !== 'function') return { routed: true, model: null, models: [] };
   const cacheKey = `${agent.name}|${sessionId}`;
   const hit = servedCache.get(cacheKey);
@@ -121,10 +167,27 @@ export async function getServedModel(agent, sessionId, { fresh = false } = {}) {
   return value;
 }
 
+// Whether the chat runs on a routed source (the gateway picks the real model). `provider` = what the run was sent with.
+export function isRoutedChat(agent, provider) {
+  const sources = modelSources(agent);
+  return Boolean((sourceOfProvider(agent, provider || null) ?? sources.find((s) => s.routed))?.routed);
+}
+
+// Whether a {provider, model} pick is one the picker offers: a routed source's preset, a listed model, or any id of a source
+// whose list cannot be fetched is not accepted (the client must not reach an arbitrary Hermes provider).
+export async function isOfferedModel(agent, provider, model) {
+  // Only the list form (`sources`) restricts picks; the single-provider form behaves as before.
+  if (!Array.isArray(providersFor(agent).config('models')?.sources)) return true;
+  const sources = modelSources(agent);
+  const data = await getCatalogModels(agent, sources);
+  const offered = data.models.filter((m) => { const allow = sources.find((s) => s.hermesProvider === m.provider)?.allow; return !allow || allow.includes(m.id); });
+  if (provider) return offered.some((m) => m.provider === provider && m.id === model);
+  return offered.some((m) => m.id === model);
+}
+
 export async function getModels(agent) {
-  const registry = providersFor(agent);
-  const catalog = registry.get('models');
-  if (catalog) return getCatalogModels(agent, catalog, registry.config('models')?.routed === true);
+  const sources = modelSources(agent);
+  if (sources.length && sources.some((s) => s.catalog || s.routed || s.fixed)) return getCatalogModels(agent, sources);
   const provider = agent.provider;
   const devModels = readJsonCached(path.join(config.hermesRoot, 'models_dev_cache.json'))?.[provider]?.models || {};
   const isGo = provider === 'opencode-go';
