@@ -246,6 +246,9 @@ function handleEvent(event, data, ctx) {
         setServedModel(data.session_id ?? run.sessionId ?? state.sessionId, data.model);
       }
       break;
+    case 'web.retry':
+      ctx.message?.setRetry(data.retry ?? null);
+      break;
     case 'web.session':
       adoptSession(ctx, data.session_id);
       break;

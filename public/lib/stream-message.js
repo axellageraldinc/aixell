@@ -37,11 +37,12 @@ export function createAssistantMessage({ startMs = Date.now(), skew = 0 } = {}) 
 
   const workingText = h('span', {});
   const working = h('p', { className: 'working', 'data-testid': 'working' }, h('span', { className: 'loading loading-dots loading-sm', 'aria-hidden': 'true' }), workingText);
+  const retryLine = h('p', { className: 'msg-note working-retry', role: 'status', 'data-testid': 'retry-note', hidden: true });
   const content = h('div', { className: 'stream-content' });
   const modelsSeen = []; // real models behind this reply, in the order the gateway served them
   let finished = false;
   const meta = assistantMeta(() => segments.map((s) => s.text).join('\n\n'));
-  const node = h('article', { className: 'msg msg-assistant is-streaming', 'data-testid': 'message-assistant' }, activity.node, content, working, meta.el);
+  const node = h('article', { className: 'msg msg-assistant is-streaming', 'data-testid': 'message-assistant' }, activity.node, content, working, retryLine, meta.el);
   const stopWorking = onTick(() => {
     if (!node.isConnected && !node.classList.contains('is-streaming')) return false;
     workingText.textContent = `${phase.label}… ${fmtClock((Date.now() - startMs) / 1000)}`;
@@ -179,6 +180,16 @@ export function createAssistantMessage({ startMs = Date.now(), skew = 0 } = {}) 
     addCommentary(text) {
       this.addPart(h('p', { className: 'commentary' }, text));
     },
+    // The agent is retrying a failing model call (or null: it went through). Says what failed and when the next try is.
+    setRetry(info) {
+      if (!info) { retryLine.hidden = true; retryLine.textContent = ''; return; }
+      const reason = info.reason || t('chat.retry.unknown');
+      const seconds = info.waitSeconds ?? 0;
+      retryLine.textContent = info.recovery
+        ? t('chat.retry.recovery', { reason, seconds, cycle: info.recovery.cycle, of: info.recovery.of })
+        : t('chat.retry.line', { reason, seconds, attempt: info.attempt, max: info.max });
+      retryLine.hidden = false;
+    },
     setNote(message, options) {
       content.append(noteNode(message, options));
     },
@@ -189,6 +200,7 @@ export function createAssistantMessage({ startMs = Date.now(), skew = 0 } = {}) 
       for (const t of tools) if (t.row.isRunning()) t.row.stop('failed', null);
       stopWorking();
       working.remove();
+      retryLine.remove();
       node.classList.remove('is-streaming');
       // A last pass so a block that arrived in the final chunk gets mounted.
       paint();

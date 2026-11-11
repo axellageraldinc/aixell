@@ -353,6 +353,8 @@ ul { padding: 0; list-style: none; }
 .mo-meta { font-size: 12px; line-height: 16px; color: var(--fgColor-muted); }
 .skeleton-option { height: 44px; margin-bottom: 4px; }
 .model-group { padding: 8px 12px 2px; font-size: 12px; font-weight: 600; line-height: 16px; color: var(--fgColor-muted); }
+.working-retry { margin: 4px 0 0; }
+.working-retry[hidden] { display: none; }
 .model-note { margin-top: 4px; padding: 0 12px; font-size: 12px; line-height: 16px; color: var(--fgColor-muted); }
 .picker-opts { display: grid; gap: 12px; padding: 12px 4px 4px; border-top: 1px solid var(--borderColor-default); }
 .picker-hint { margin: 6px 0 0; font-size: 12px; line-height: 16px; color: var(--fgColor-muted); }

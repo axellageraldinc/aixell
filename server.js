@@ -30,6 +30,7 @@ import { publicKey as pushKey, saveSubscription, removeSubscription, hasSubscrip
 import { listFacts, updateFact, removeFact, readNotes, writeNotes, listSkills, readSkill, trashSkill } from './src/knowledge.js';
 import { startRun, findRun, runInfo, publish, attach, endRun, sseFrame } from './src/runs.js';
 import { getTrail, noteModel, forgetTrail } from './src/model-trail.js';
+import { readRetryState } from './src/retry-watch.js';
 import { getSettings, saveSettings, forgetSettings, getContext, saveContext } from './src/session-settings.js';
 import { priceOf, estimateCost, averagePrompt, loadPrices } from './src/pricing.js';
 import { getTemplates, setTemplates } from './src/templates.js';
@@ -483,6 +484,7 @@ const SSE_HEADERS = { ...SECURITY_HEADERS, 'Content-Type': 'text/event-stream; c
 // changes (a `web.model` event, also kept in the replay). Each change is saved with its time so a reloaded chat can
 // still name the model(s) behind every reply. Best effort: a gateway that cannot say leaves everything as it was.
 const MODEL_SAMPLE_MS = 1_500;
+const RETRY_SAMPLE_MS = 3_000;
 function watchServedModel(run, agent, sessionId) {
   let last = null;
   let busy = false;
@@ -504,14 +506,32 @@ function watchServedModel(run, agent, sessionId) {
   return async () => { clearInterval(timer); await sample(); };
 }
 
+// Tells the chat when the agent is retrying a failing model call (and clears it when a call goes through).
+function watchRetries(run, agent, sessionId) {
+  const since = Date.now() - 5_000;
+  let last = 'null';
+  const sample = () => {
+    if (run.ended) return;
+    const state = readRetryState(agent, sessionId, since);
+    const key = JSON.stringify(state);
+    if (key === last) return;
+    last = key;
+    publish(run, sseFrame('web.retry', { session_id: sessionId, retry: state }));
+  };
+  const timer = setInterval(sample, RETRY_SAMPLE_MS);
+  return () => { clearInterval(timer); if (last !== 'null') publish(run, sseFrame('web.retry', { session_id: sessionId, retry: null })); };
+}
+
 async function pump(run, upstream, agent, sessionId, callsBefore, announce = true) {
   const routed = isRoutedChat(agent, getSettings(agent.name, sessionId)?.provider);
   const stopWatching = routed ? watchServedModel(run, agent, sessionId) : null;
+  const stopRetries = watchRetries(run, agent, sessionId);
   try {
     for await (const chunk of upstream.body) publish(run, chunk);
   } catch (error) {
     publish(run, sseFrame('error', { message: 'Connection to the agent was lost.', code: error.name }));
   }
+  stopRetries();
   if (stopWatching) await stopWatching();
   endRun(run);
   // A reply that finished on its own: tell the devices that asked to hear about long ones (the service worker stays

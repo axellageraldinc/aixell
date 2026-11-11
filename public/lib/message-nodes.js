@@ -60,7 +60,7 @@ export function userNode(content, timestamp, files = null) {
     'div',
     { className: 'msg msg-user', 'data-testid': 'message-user' },
     atts.length ? h('div', { className: 'user-atts' }, atts) : null,
-    parsed.text ? h('div', { className: 'user-body' }, renderMarkdown(parsed.text, { user: true })) : null,
+    parsed.text ? h('div', { className: 'user-body', 'data-raw': parsed.text }, renderMarkdown(parsed.text, { user: true })) : null,
     timestamp == null ? null : h('div', { className: 'meta' }, fmtDateTime(timestamp)),
   );
 }

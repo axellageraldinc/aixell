@@ -35,7 +35,8 @@ async function redo(textFor) {
 
 function openEditor(userEl) {
   const body = userEl.querySelector('.user-body');
-  const original = body.querySelector('p')?.textContent ?? '';
+  // The text as it was typed (every paragraph, line break and list); the rendered paragraphs are only its markdown.
+  const original = body.dataset.raw ?? body.innerText ?? '';
   const area = h('textarea', { className: 'dlg-text redo-text', rows: 3, 'aria-label': t('chat.message.edit'), 'data-testid': 'redo-text' });
   area.value = original;
   const send = h('button', { type: 'button', className: 'btn btn-primary btn-sm', 'data-testid': 'redo-send' }, t('chat.message.resend'));
