@@ -47,3 +47,33 @@ export function readRetryState(agent, sessionId, sinceMs) {
     } finally { fs.closeSync(fd); }
   } catch { return null; }
 }
+
+// The reason a model call failed for good ("not retryable": a 403 for a model the client may not call, a rejected key), or null when
+// the last call of the chat after `sinceMs` went through or failed in a way the agent retries.
+export function parseFatalError(text, sessionId, sinceMs = 0) {
+  let fatal = null;
+  for (const raw of String(text).split('\n')) {
+    const m = LINE.exec(raw);
+    if (!m || m[7] !== sessionId) continue;
+    const at = new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]).getTime();
+    if (at < sinceMs) continue;
+    let hit;
+    if ((hit = /^API call failed \(attempt \d+\/\d+, not retryable\).*?\bmodel=(\S+)(?: summary=(.*))?$/.exec(m[8]))) fatal = { model: hit[1], reason: clip(hit[2]) || 'no details' };
+    else if (/^API call #\d+: /.test(m[8])) fatal = null;
+  }
+  return fatal;
+}
+
+export function readFatalError(agent, sessionId, sinceMs) {
+  try {
+    const file = path.join(agent.home, 'logs', 'agent.log');
+    const { size } = fs.statSync(file);
+    const length = Math.min(size, TAIL_BYTES);
+    const fd = fs.openSync(file, 'r');
+    try {
+      const buffer = Buffer.alloc(length);
+      fs.readSync(fd, buffer, 0, length, size - length);
+      return parseFatalError(buffer.toString('utf8'), sessionId, sinceMs);
+    } finally { fs.closeSync(fd); }
+  } catch { return null; }
+}

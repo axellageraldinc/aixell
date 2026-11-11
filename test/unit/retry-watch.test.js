@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseRetryState } from '../../src/retry-watch.js';
+import { parseRetryState, parseFatalError } from '../../src/retry-watch.js';
 
 const S = 'api_1_abc';
 const log = (lines) => lines.join('\n');
@@ -26,4 +26,14 @@ test('other chats, old lines and noise are ignored', () => {
   assert.equal(parseRetryState(log([other, 'garbage line']), S), null);
   const since = new Date(2026, 10, 11, 3, 55, 0).getTime();
   assert.equal(parseRetryState(log([FAIL('54:52', 1)]), S, since), null);
+});
+
+const FATAL = (t) => `2026-11-11 03:${t},141 WARNING [${S}] agent.conversation_loop: API call failed (attempt 1/3, not retryable) error_type=PermissionDeniedError thread=x provider=custom base_url=https://example.test/v1 model=m-9 summary=HTTP 403: client may not call m-9`;
+
+test('a call that failed for good gives its model and reason; a later good call or an old line clears it', () => {
+  assert.deepEqual(parseFatalError(log([FATAL('10:00')]), S), { model: 'm-9', reason: 'HTTP 403: client may not call m-9' });
+  assert.equal(parseFatalError(log([FATAL('10:00'), OK('10:05')]), S), null);
+  assert.equal(parseFatalError(log([FATAL('10:00')]), S, new Date(2026, 10, 11, 3, 30, 0).getTime()), null);
+  assert.equal(parseFatalError(log([FATAL('10:00').replace(S, 'api_2_zzz')]), S), null);
+  assert.equal(parseFatalError(log([FAIL('10:00', 1)]), S), null, 'a retryable failure is not final');
 });

@@ -50,6 +50,7 @@ test('a follow-up in an existing chat reuses the session and passes the model op
   assert.equal(body.model, 'fake-model');
   assert.equal(body.provider, 'fake-provider');
   assert.deepEqual(body.model_options, { reasoning_effort: 'high', service_tier: 'priority' });
+  assert.equal(body.require_model_lock, true, 'the picked model is locked so the agent cannot keep an older one');
   const settings = await me.get(`/api/agents/${AGENT_NAME}/sessions/${sessionId}`);
   assert.equal(settings.data.session.web_settings.model, 'fake-model', 'the choice is remembered for the chat');
 });

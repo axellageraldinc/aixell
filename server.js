@@ -30,7 +30,7 @@ import { publicKey as pushKey, saveSubscription, removeSubscription, hasSubscrip
 import { listFacts, updateFact, removeFact, readNotes, writeNotes, listSkills, readSkill, trashSkill } from './src/knowledge.js';
 import { startRun, findRun, runInfo, publish, attach, endRun, sseFrame } from './src/runs.js';
 import { getTrail, noteModel, forgetTrail } from './src/model-trail.js';
-import { readRetryState } from './src/retry-watch.js';
+import { readRetryState, readFatalError } from './src/retry-watch.js';
 import { getSettings, saveSettings, forgetSettings, getContext, saveContext } from './src/session-settings.js';
 import { priceOf, estimateCost, averagePrompt, loadPrices } from './src/pricing.js';
 import { getTemplates, setTemplates } from './src/templates.js';
@@ -411,11 +411,14 @@ async function streamChat(req, res, agent) {
     }
   }
   if (payload.model && !(await isOfferedModel(agent, payload.provider, payload.model))) throw new HttpError(400, 'That model is not offered.', 'bad_model');
+  // The agent keeps the model a chat last ran on and lets it beat a per-request model, so a pick made later would be ignored (and a
+  // model the gateway has since dropped would fail every turn). A lock makes the picked model win and stores it as the chat's own.
+  if (payload.model) payload.require_model_lock = true;
   // A spoken turn asks for the speech capability's `chatModel` when one is set: a pool of fast models, because the answer is
   // waiting to be heard. It replaces the model picked in the chat for that turn only.
   if (body.spoken === true) {
     const voiceModel = providersFor(agent).config('speech')?.chatModel;
-    if (typeof voiceModel === 'string' && MODEL_RE.test(voiceModel)) payload.model = voiceModel;
+    if (typeof voiceModel === 'string' && MODEL_RE.test(voiceModel)) { payload.model = voiceModel; delete payload.require_model_lock; } // one turn only: never stored as the chat's model
   }
   const options = {};
   if (body.reasoningEffort != null) {
@@ -533,6 +536,12 @@ async function pump(run, upstream, agent, sessionId, callsBefore, announce = tru
   }
   stopRetries();
   if (stopWatching) await stopWatching();
+  // A call the agent will not retry (a 403 for a model the gateway no longer allows) ends the turn with only a generic notice in the
+  // chat. The log has the reason; say it.
+  if (run.usageInput == null) {
+    const fatal = readFatalError(agent, sessionId, run.startedAt - 5_000);
+    if (fatal) publish(run, sseFrame('error', { message: `The model service rejected the request${fatal.model ? ` for ${fatal.model}` : ''}: ${fatal.reason}`, code: 'model_error' }));
+  }
   endRun(run);
   // A reply that finished on its own: tell the devices that asked to hear about long ones (the service worker stays
   // silent when the app is open in front of you).
@@ -563,6 +572,7 @@ async function deliverCheckin(item) {
   const saved = getSettings(agent.name, item.sessionId) ?? {};
   const payload = { input: checkinSeed(item), system_message: [getPersonality(agent.name), WEB_HINT, followupHint(agent.name, item.sessionId)].filter(Boolean).join('\n\n') };
   for (const key of ['model', 'provider']) if (typeof saved[key] === 'string' && MODEL_RE.test(saved[key])) payload[key] = saved[key];
+  if (payload.model) payload.require_model_lock = true;
   const options = {};
   if (EFFORT_LEVELS.includes(saved.reasoningEffort)) options.reasoning_effort = saved.reasoningEffort;
   if (SERVICE_TIERS.includes(saved.serviceTier) && saved.serviceTier !== 'default') options.service_tier = saved.serviceTier;
