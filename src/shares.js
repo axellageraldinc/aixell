@@ -112,7 +112,11 @@ async function kv(settings, method, token, { body, ttlSeconds } = {}) {
     headers: { Authorization: `Bearer ${settings.apiToken}`, ...(body ? { 'Content-Type': 'text/html; charset=utf-8' } : {}) },
   });
   if (res.status === 404 && method === 'DELETE') return;
-  if (res.status < 200 || res.status >= 300) throw new HttpError(502, `The share host refused the request (${res.status}).`, 'share_upstream');
+  if (res.status >= 200 && res.status < 300) return;
+  if (res.status === 401 || res.status === 403) throw new HttpError(502, 'Cloudflare refused the API token (it needs Workers KV Storage: Edit on this account). See "Share a chat" in docs/configuration.md.', 'share_auth');
+  let detail = '';
+  try { detail = String(JSON.parse(res.body.toString('utf8')).errors?.[0]?.message ?? '').slice(0, 120); } catch { /* not JSON */ }
+  throw new HttpError(502, `The share host refused the request (${res.status}${detail ? `: ${detail}` : ''}).`, 'share_upstream');
 }
 
 // Publishes a chat, or refreshes the snapshot of one that is already shared (same link).

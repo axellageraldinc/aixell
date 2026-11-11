@@ -76,3 +76,13 @@ test('sharing requires a signed-in client', async () => {
   assert.equal((await app.client().call('GET', '/api/shares')).status, 401);
   assert.ok(fs.existsSync(`${app.dataDir}/share.json`));
 });
+
+test('a rejected Cloudflare token is reported as such, not as a generic failure', async () => {
+  const { setTransport } = await import('../../src/shares.js');
+  setTransport(async () => ({ status: 401, body: Buffer.from('{"success":false,"errors":[{"code":10000,"message":"Authentication error"}]}') }));
+  const res = await me.post('/api/shares', { agent: app.agentName, sessionId: 'tok', title: 'T', body: '<p>x</p>' });
+  assert.equal(res.status, 502);
+  assert.equal(res.data.error.code, 'share_auth');
+  assert.match(res.data.error.message, /Workers KV Storage/);
+  setTransport(async (url, options) => { calls.push({ url, ...options }); return { status: 200, body: Buffer.from('{}') }; });
+});
